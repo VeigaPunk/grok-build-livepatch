@@ -23,6 +23,10 @@ only --help skips network without other flags.
 Env:
   GROK_LIVEPATCH_STATE, GROK_BUILD_SRC, GROK_LIVEPATCH_INSTALL,
   GROK_LIVEPATCH_FORCE=1, GROK_LIVEPATCH_REPLACE_BIN=1
+
+When upstream version matches last-patched and FORCE is unset: reverse-check
+noop, or clean re-apply + unit smoke with optional skip of release rebuild
+(if install binary already present). Full cargo rebuild on version advance.
 EOF
 }
 
@@ -188,20 +192,47 @@ main() {
   last=$(last_patched)
   log "installed=${installed:-?} upstream=${upstream:-?} last_patched=${last:-none}"
 
+  if [[ ! -f "$PATCH" ]]; then
+    log "FAIL: patch missing at $PATCH"
+    echo "fail" >"$STATE_DIR/last-result"
+    exit 1
+  fi
+
   ensure_source
 
-  # Always re-apply on tip when upstream tag/version advances OR force.
-  # Noop only when reverse --check proves full livepatch (same bar as apply_patch).
+  # Version-match fast path (!FORCE): cheap re-assert without full release rebuild.
+  # 1) reverse-check OK → already-applied tree (e.g. failed reset) → pure noop
+  # 2) forward --check OK → clean tip after reset → apply + unit smoke; skip binary
+  #    rebuild unless install missing, FORCE, or REPLACE_BIN (user wants refresh)
+  # Else fall through to full apply/rebuild (true drift / conflict).
   if [[ "${GROK_LIVEPATCH_FORCE:-0}" != "1" && -n "$upstream" && "$upstream" == "$last" ]]; then
     if git -C "$SRC_DIR" apply --reverse --check "$PATCH" 2>"$STATE_DIR/apply-reverse-check.err"; then
       log "already patched for $upstream (reverse-check OK) — noop"
       echo "noop" >"$STATE_DIR/last-result"
       exit 0
     fi
+    if git -C "$SRC_DIR" apply --check "$PATCH" 2>"$STATE_DIR/apply-check.err"; then
+      log "version match: clean tip — re-assert patch + unit smoke (light path)"
+      git -C "$SRC_DIR" checkout -B livepatch/ban-generic-subagents
+      git -C "$SRC_DIR" apply "$PATCH"
+      run_unit_smoke
+      if [[ -x "$INSTALL_DIR/grok" && "${GROK_LIVEPATCH_REPLACE_BIN:-0}" != "1" ]]; then
+        echo "${upstream}" >"$STATE_DIR/last-patched-version"
+        echo "ok-reassert $(ts)" >"$STATE_DIR/last-result"
+        log "=== livepatch OK (reassert; skipped release rebuild) ==="
+        exit 0
+      fi
+      log "install binary missing or REPLACE_BIN=1 — building"
+      build_and_install
+      echo "${upstream}" >"$STATE_DIR/last-patched-version"
+      echo "ok $(ts)" >"$STATE_DIR/last-result"
+      log "=== livepatch OK ==="
+      exit 0
+    fi
     if git -C "$SRC_DIR" grep -q 'is_banned_subagent_type' -- '*.rs' 2>/dev/null; then
-      log "WARN: version match + ban symbols but reverse --check failed — re-applying"
+      log "WARN: version match + ban symbols but neither reverse nor forward clean — full re-apply"
     else
-      log "version match but livepatch not reverse-clean — re-applying"
+      log "version match but tree not apply-clean — full re-apply"
     fi
   fi
 
