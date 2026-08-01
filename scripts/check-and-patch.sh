@@ -32,9 +32,13 @@ Env:
   GROK_LIVEPATCH_STATE, GROK_BUILD_SRC, GROK_LIVEPATCH_INSTALL,
   GROK_LIVEPATCH_FORCE=1, GROK_LIVEPATCH_REPLACE_BIN=1
 
+  Timer unit defaults REPLACE_BIN=1 (active CLI = livepatch). Set
+  Environment=GROK_LIVEPATCH_REPLACE_BIN=0 on the unit to keep stock CLI.
+
 When upstream version matches last-patched and FORCE is unset: reverse-check
-noop, or clean re-apply + unit smoke with optional skip of release rebuild
-(if install binary already present). Full cargo rebuild on version advance.
+noop, or clean re-apply + unit smoke; skip release rebuild if install binary
+exists (still re-links CLI when REPLACE_BIN=1). Full cargo rebuild on version
+advance or missing install binary.
 EOF
 }
 
@@ -166,6 +170,19 @@ apply_patch() {
   return 2
 }
 
+# Point ~/.grok/bin/grok at install binary when REPLACE_BIN is enabled.
+ensure_cli_link() {
+  if [[ "${GROK_LIVEPATCH_REPLACE_BIN:-0}" != "1" ]]; then
+    return 0
+  fi
+  if [[ ! -x "$INSTALL_DIR/grok" ]]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$BIN_LINK")"
+  ln -sfn "$INSTALL_DIR/grok" "$BIN_LINK"
+  log "ensured CLI link $BIN_LINK → $INSTALL_DIR/grok"
+}
+
 build_and_install() {
   cd "$SRC_DIR"
   log "cargo build --release (xai-tool-types + grok binary if present)"
@@ -180,13 +197,10 @@ build_and_install() {
   bin=$(find "$SRC_DIR/target/release" -maxdepth 1 -type f -executable \( -name 'grok' -o -name 'xai-grok*' -o -name 'grok-build*' \) 2>/dev/null | head -1 || true)
   if [[ -n "${bin:-}" ]]; then
     install -m 755 "$bin" "$INSTALL_DIR/grok"
-    # Side-install: do NOT clobber official install unless explicitly requested
     if [[ "${GROK_LIVEPATCH_REPLACE_BIN:-0}" == "1" ]]; then
-      mkdir -p "$(dirname "$BIN_LINK")"
-      ln -sfn "$INSTALL_DIR/grok" "$BIN_LINK"
-      log "replaced $BIN_LINK → $INSTALL_DIR/grok"
+      ensure_cli_link
     else
-      log "built binary at $INSTALL_DIR/grok (set GROK_LIVEPATCH_REPLACE_BIN=1 to replace ~/.grok/bin/grok)"
+      log "built binary at $INSTALL_DIR/grok (timer unit defaults REPLACE_BIN=1; set 0 to keep stock CLI)"
     fi
   else
     log "no release binary found; library patch validated via cargo build -p xai-tool-types only"
@@ -221,12 +235,14 @@ main() {
 
   # Version-match fast path (!FORCE): cheap re-assert without full release rebuild.
   # 1) reverse-check OK → already-applied tree (e.g. failed reset) → pure noop
-  # 2) forward --check OK → clean tip after reset → apply + unit smoke; skip binary
-  #    rebuild unless install missing, FORCE, or REPLACE_BIN (user wants refresh)
+  #    (still refresh CLI link if REPLACE_BIN=1 and install binary exists)
+  # 2) forward --check OK → clean tip after reset → apply + unit smoke; skip cargo
+  #    rebuild if install binary exists; still ensure CLI link when REPLACE_BIN=1
   # Else fall through to full apply/rebuild (true drift / conflict).
   if [[ "${GROK_LIVEPATCH_FORCE:-0}" != "1" && -n "$upstream" && "$upstream" == "$last" ]]; then
     if git -C "$SRC_DIR" apply --reverse --check "$PATCH" 2>"$STATE_DIR/apply-reverse-check.err"; then
       log "already patched for $upstream (reverse-check OK) — noop"
+      ensure_cli_link
       echo "noop" >"$STATE_DIR/last-result"
       exit 0
     fi
@@ -235,13 +251,14 @@ main() {
       git -C "$SRC_DIR" checkout -B livepatch/ban-generic-subagents
       git -C "$SRC_DIR" apply "$PATCH"
       run_unit_smoke
-      if [[ -x "$INSTALL_DIR/grok" && "${GROK_LIVEPATCH_REPLACE_BIN:-0}" != "1" ]]; then
+      if [[ -x "$INSTALL_DIR/grok" ]]; then
+        ensure_cli_link
         echo "${upstream}" >"$STATE_DIR/last-patched-version"
         echo "ok-reassert $(ts)" >"$STATE_DIR/last-result"
         log "=== livepatch OK (reassert; skipped release rebuild) ==="
         exit 0
       fi
-      log "install binary missing or REPLACE_BIN=1 — building"
+      log "install binary missing — building"
       build_and_install
       echo "${upstream}" >"$STATE_DIR/last-patched-version"
       echo "ok $(ts)" >"$STATE_DIR/last-result"
@@ -272,6 +289,7 @@ main() {
 
   # Full reverse-clean already-applied: integrity already proven; skip heavy rebuild
   if [[ "${APPLY_STATUS:-}" == "already-applied" ]]; then
+    ensure_cli_link
     echo "${upstream:-$(ts)}" >"$STATE_DIR/last-patched-version"
     echo "already-applied $(ts)" >"$STATE_DIR/last-result"
     log "=== livepatch already-applied (noop rebuild) ==="

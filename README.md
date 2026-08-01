@@ -38,24 +38,21 @@ Re-run `./scripts/install-timer.sh` after upgrades. It stamps `~/.local/state/gr
 
 There is **no dry-run** that skips network on the zero-arg path; only `--help`/`-h` exits before clone/build.
 
-Optional: put the livepatch build on your active CLI (the 6h timer builds under
-`~/.local/opt/grok-build-livepatch/grok` but does **not** replace `~/.grok/bin/grok`
-unless you opt in):
+**Active CLI:** the systemd unit defaults `GROK_LIVEPATCH_REPLACE_BIN=1`, so each
+successful build (and the version-match light path) points `~/.grok/bin/grok` at
+`~/.local/opt/grok-build-livepatch/grok`. Opt out by setting
+`Environment=GROK_LIVEPATCH_REPLACE_BIN=0` on the user unit.
 
 ```bash
-# after a successful build exists:
-./scripts/install-timer.sh --status     # shows active_cli=stock-or-other|livepatch
-./scripts/install-timer.sh --link-bin   # symlink ~/.grok/bin/grok → livepatch build
-
-# or rebuild and replace in one shot:
-GROK_LIVEPATCH_REPLACE_BIN=1 ./scripts/check-and-patch.sh
+./scripts/install-timer.sh --status     # active_cli=livepatch|stock-or-other
+./scripts/install-timer.sh --link-bin   # manual symlink if needed
 ```
 
 State + logs: `~/.local/state/grok-build-livepatch/` (`last-result` may be `ok`, `ok-reassert`, `noop`, `already-applied`, `needs-rebase`, or `fail`).
 
 **Already-applied:** reverse-`git apply --check` success is pure noop. A bare forward `git apply --check` on an already-patched tree is expected to fail and is **not** the ship gate — use a clean upstream clone for integrity checks.
 
-**Version-match light path:** when `last-patched-version` equals the current upstream tag, the timer re-asserts the patch + unit smoke on a clean tip and **skips** a full release rebuild if `~/.local/opt/grok-build-livepatch/grok` already exists (unless `GROK_LIVEPATCH_FORCE=1` or `GROK_LIVEPATCH_REPLACE_BIN=1`).
+**Version-match light path:** when `last-patched-version` equals the current upstream tag, the timer re-asserts the patch + unit smoke on a clean tip and **skips** a full release rebuild if the install binary already exists (still re-links the CLI when `REPLACE_BIN=1`). Full rebuild only on version advance, missing binary, or `FORCE=1`.
 
 ## Musketeer / Grok scheduler (6h prompt)
 
