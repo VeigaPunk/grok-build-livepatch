@@ -28,6 +28,8 @@ cd grok-build-livepatch
 chmod +x scripts/*.sh
 ./scripts/check-and-patch.sh --help   # usage only; no network
 ./scripts/install-timer.sh --help
+./scripts/gates.sh                   # bash -n + --help (+ install-timer --status)
+./scripts/gates.sh --with-patch      # also clean-tree git apply --check (network)
 ./scripts/check-and-patch.sh          # first run (clone/fetch + cargo — network-heavy)
 ./scripts/install-timer.sh            # systemd --user timer @ 6h (binds ExecStart to this ROOT)
 ```

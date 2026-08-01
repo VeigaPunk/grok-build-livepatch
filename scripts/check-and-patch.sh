@@ -20,6 +20,14 @@ livepatch (clone/fetch, cargo build — network-heavy).
 Zero-arg path runs the full check (may network). There is no dry-run flag;
 only --help skips network without other flags.
 
+Exit codes:
+  0  ok / noop / already-applied / ok-reassert
+  1  failure
+  2  needs human rebase (patch does not apply)
+
+last-result tokens (under GROK_LIVEPATCH_STATE):
+  ok | ok-reassert | noop | already-applied | needs-rebase | fail
+
 Env:
   GROK_LIVEPATCH_STATE, GROK_BUILD_SRC, GROK_LIVEPATCH_INSTALL,
   GROK_LIVEPATCH_FORCE=1, GROK_LIVEPATCH_REPLACE_BIN=1
@@ -195,6 +203,8 @@ run_unit_smoke() {
 
 main() {
   log "=== livepatch check start ==="
+  log "ROOT=$ROOT SRC_DIR=$SRC_DIR INSTALL_DIR=$INSTALL_DIR"
+  log "PATCH=$PATCH"
   local installed upstream last
   installed=$(current_installed | head -1)
   upstream=$(fetch_upstream_version)
