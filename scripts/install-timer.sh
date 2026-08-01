@@ -57,8 +57,15 @@ print_bin_status() {
   echo "livepatch_bin=$LIVE_BIN"
   if [[ -x "$LIVE_BIN" ]]; then
     echo "livepatch_bin_present=yes"
+    # Cheap probe: patched tool schema string (not mangled Rust symbol).
+    if grep -aobF 'are banned and will be rejected' "$LIVE_BIN" >/dev/null 2>&1; then
+      echo "ban_in_binary=yes"
+    else
+      echo "ban_in_binary=no (rebuild with check-and-patch; stock binary lacks ban)"
+    fi
   else
     echo "livepatch_bin_present=no (run check-and-patch to build)"
+    echo "ban_in_binary=unknown"
   fi
   if [[ -e "$BIN_LINK" || -L "$BIN_LINK" ]]; then
     active=$(readlink -f "$BIN_LINK" 2>/dev/null || true)

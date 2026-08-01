@@ -103,6 +103,20 @@ grok plugin install ./marketplace --trust
 
 xbgst / xbrd godspeed walks should spawn **specialists** (`the-planner`, `scout`, `executor`, …), not Grok's generic built-ins. This livepatch enforces that at the **CLI validation layer**, not via a skill prompt.
 
+### Host install vs this repo
+
+`xbgst-stack` `install-host.sh` may rebind the timer to its bundled `livepatch/` copy (marketplace-first). To keep the public clone as the timer root:
+
+```bash
+# after cloning this repo:
+./scripts/install-timer.sh
+# if install-host runs later and steals the unit:
+GROK_LIVEPATCH_KEEP_STAMP=1 bash <xbgst-stack>/scripts/install-host.sh
+# or force this checkout:
+GROK_LIVEPATCH_ROOT=$HOME/Projects/grok-build-livepatch ./scripts/install-timer.sh
+./scripts/install-timer.sh --status   # confirm ExecStart + ban_in_binary=yes
+```
+
 ## License
 
 Patches against Apache-2.0 `xai-org/grok-build`. This packaging is **MIT OR Apache-2.0** (see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)).
