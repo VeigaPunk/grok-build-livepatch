@@ -11,8 +11,10 @@ Nice=10
 Environment=PATH=%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
 Environment=CARGO_HOME=%h/.cargo
 Environment=RUSTUP_HOME=%h/.rustup
-# Optional: replace installed grok binary after successful build
-# Environment=GROK_LIVEPATCH_REPLACE_BIN=1
+# Point ~/.grok/bin/grok at the livepatched binary after each successful build.
+# Without this, the ban only exists under ~/.local/opt/... while the CLI still
+# uses the stock downloads channel. Set GROK_LIVEPATCH_REPLACE_BIN=0 to opt out.
+Environment=GROK_LIVEPATCH_REPLACE_BIN=1
 
 [Install]
 WantedBy=default.target
