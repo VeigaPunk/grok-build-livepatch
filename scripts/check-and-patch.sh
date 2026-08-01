@@ -77,13 +77,14 @@ fetch_upstream_version() {
   local tag
   tag=$(git ls-remote --tags --refs https://github.com/xai-org/grok-build.git 2>/dev/null \
     | awk -F/ '{print $NF}' | grep -E '^[0-9]' | sort -V | tail -1 || true)
+  tag=$(printf '%s' "${tag:-}" | tr -d '[:space:]')
   if [[ -n "${tag:-}" ]]; then
     echo "$tag"
     return
   fi
   # Fallback: grok update check leaves version.json
   local v
-  v=$(read_version_json "$VERSION_FILE")
+  v=$(read_version_json "$VERSION_FILE" | head -1 | tr -d '[:space:]')
   if [[ -n "${v:-}" ]]; then
     echo "$v"
     return

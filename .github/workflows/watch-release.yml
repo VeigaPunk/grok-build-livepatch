@@ -8,19 +8,35 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   check-patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Script syntax + --help gates
+        run: |
+          set -euo pipefail
+          bash -n scripts/check-and-patch.sh
+          bash -n scripts/install-timer.sh
+          bash -n scripts/publish.sh
+          ./scripts/check-and-patch.sh --help >/dev/null
+          ./scripts/install-timer.sh --help >/dev/null
+          ./scripts/publish.sh --help >/dev/null
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Fetch upstream grok-build
         run: |
+          set -euo pipefail
           git clone --depth 1 https://github.com/xai-org/grok-build.git /tmp/grok-build
-          echo "UPSTREAM_REV=$(git -C /tmp/grok-build rev-parse HEAD)" >> "$GITHUB_ENV"
+          UPSTREAM_REV=$(git -C /tmp/grok-build rev-parse HEAD)
+          echo "UPSTREAM_REV=$UPSTREAM_REV" >> "$GITHUB_ENV"
           echo "UPSTREAM_REV=$UPSTREAM_REV"
 
       - name: Apply livepatch
@@ -49,26 +65,40 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `livepatch needs rebase against grok-build@${process.env.UPSTREAM_REV}`;
+            const rev = process.env.UPSTREAM_REV || 'unknown';
+            const title = `livepatch needs rebase against grok-build@${rev}`;
             const body = [
               'The 6h watch failed to apply `patches/0001-ban-generic-subagents.patch` cleanly.',
               '',
-              `Upstream tip: \`${process.env.UPSTREAM_REV}\``,
+              `Upstream tip: \`${rev}\``,
               '',
               'Please refresh the patch against current `xai-org/grok-build` main.',
             ].join('\n');
-            const issues = await github.rest.issues.listForRepo({
+            const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'livepatch-break',
-            });
-            if (issues.data.length === 0) {
+            }).catch(() => ({ data: [] }));
+            if (issues.length > 0) {
+              console.log('open livepatch-break issue already exists');
+              return;
+            }
+            try {
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title,
                 body,
                 labels: ['livepatch-break'],
+              });
+            } catch (e) {
+              // Label may not exist on first break — create without labels.
+              console.log('create with label failed, retrying without labels:', e.message || e);
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
               });
             }
