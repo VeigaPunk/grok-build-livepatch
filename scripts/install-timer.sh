@@ -172,11 +172,13 @@ fi
 
 systemctl --user daemon-reload
 systemctl --user enable --now grok-build-livepatch.timer
-systemctl --user start grok-build-livepatch.service || true
+# Do not start the oneshot service here — it may cargo-build for minutes.
+# Timer fires on schedule; run check-and-patch manually for an immediate apply.
 systemctl --user list-timers --all | grep -i grok-build || true
 echo "Installed from ROOT=$ROOT"
 echo "  $NEW_EXEC"
 echo "Logs: journalctl --user -u grok-build-livepatch.service -f"
 echo "State:  $STATE_DIR"
+echo "Immediate apply: $ROOT/scripts/check-and-patch.sh"
 echo "Status: $0 --status"
 print_bin_status
