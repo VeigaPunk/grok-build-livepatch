@@ -4,14 +4,17 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: install-timer.sh [--help|-h] [--status]
+Usage: install-timer.sh [--help|-h] [--status] [--link-bin]
 
 Install a user systemd timer that runs check-and-patch.sh every 6 hours.
 Copies units under ~/.config/systemd/user and enables the timer (local only;
 no network from this script).
 
   --help, -h   Print this help and exit 0.
-  --status     Print preferred root + installed ExecStart; exit 0 (no changes).
+  --status     Print preferred root, unit ExecStart, and whether the active
+               ~/.grok/bin/grok is the livepatch build (no changes).
+  --link-bin   Symlink ~/.grok/bin/grok → ~/.local/opt/grok-build-livepatch/grok
+               if that binary exists (opt-in; does not enable REPLACE_BIN on timer).
 
 Root resolution (first match wins):
   1) GROK_LIVEPATCH_ROOT if it contains scripts/check-and-patch.sh
@@ -29,6 +32,9 @@ PREF_FILE="$STATE_DIR/preferred-install-root"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UNIT="$UNIT_DIR/grok-build-livepatch.service"
 SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+INSTALL_DIR="${GROK_LIVEPATCH_INSTALL:-$HOME/.local/opt/grok-build-livepatch}"
+BIN_LINK="${GROK_BIN_LINK:-$HOME/.grok/bin/grok}"
+LIVE_BIN="$INSTALL_DIR/grok"
 
 resolve_root() {
   local cand
@@ -44,6 +50,33 @@ resolve_root() {
     fi
   fi
   printf '%s\n' "$SCRIPT_ROOT"
+}
+
+print_bin_status() {
+  local active live
+  echo "livepatch_bin=$LIVE_BIN"
+  if [[ -x "$LIVE_BIN" ]]; then
+    echo "livepatch_bin_present=yes"
+  else
+    echo "livepatch_bin_present=no (run check-and-patch to build)"
+  fi
+  if [[ -e "$BIN_LINK" || -L "$BIN_LINK" ]]; then
+    active=$(readlink -f "$BIN_LINK" 2>/dev/null || true)
+    echo "active_grok_link=$BIN_LINK"
+    echo "active_grok_realpath=${active:-?}"
+    live=$(readlink -f "$LIVE_BIN" 2>/dev/null || true)
+    if [[ -n "$active" && -n "$live" && "$active" == "$live" ]]; then
+      echo "active_cli=livepatch"
+    else
+      echo "active_cli=stock-or-other (ban not active in CLI until --link-bin or REPLACE_BIN=1 build)"
+    fi
+  else
+    echo "active_grok_link=(missing)"
+    echo "active_cli=none"
+  fi
+  if [[ -f "$STATE_DIR/last-result" ]]; then
+    echo "last-result=$(tr -d '\r\n' <"$STATE_DIR/last-result")"
+  fi
 }
 
 print_status() {
@@ -67,6 +100,19 @@ print_status() {
   fi
   systemctl --user is-enabled grok-build-livepatch.timer 2>/dev/null || true
   systemctl --user is-active grok-build-livepatch.timer 2>/dev/null || true
+  print_bin_status
+}
+
+link_livepatch_bin() {
+  if [[ ! -x "$LIVE_BIN" ]]; then
+    echo "FAIL: livepatch binary missing at $LIVE_BIN" >&2
+    echo "Build first: ./scripts/check-and-patch.sh  (or FORCE=1)" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$BIN_LINK")"
+  ln -sfn "$LIVE_BIN" "$BIN_LINK"
+  echo "linked $BIN_LINK → $LIVE_BIN"
+  print_bin_status
 }
 
 case "${1:-}" in
@@ -76,6 +122,10 @@ case "${1:-}" in
     ;;
   --status)
     print_status
+    exit 0
+    ;;
+  --link-bin)
+    link_livepatch_bin
     exit 0
     ;;
   "")
@@ -129,3 +179,4 @@ echo "  $NEW_EXEC"
 echo "Logs: journalctl --user -u grok-build-livepatch.service -f"
 echo "State:  $STATE_DIR"
 echo "Status: $0 --status"
+print_bin_status

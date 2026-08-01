@@ -38,9 +38,16 @@ Re-run `./scripts/install-timer.sh` after upgrades. It stamps `~/.local/state/gr
 
 There is **no dry-run** that skips network on the zero-arg path; only `--help`/`-h` exits before clone/build.
 
-Optional: replace the installed `grok` binary after a successful build:
+Optional: put the livepatch build on your active CLI (the 6h timer builds under
+`~/.local/opt/grok-build-livepatch/grok` but does **not** replace `~/.grok/bin/grok`
+unless you opt in):
 
 ```bash
+# after a successful build exists:
+./scripts/install-timer.sh --status     # shows active_cli=stock-or-other|livepatch
+./scripts/install-timer.sh --link-bin   # symlink ~/.grok/bin/grok → livepatch build
+
+# or rebuild and replace in one shot:
 GROK_LIVEPATCH_REPLACE_BIN=1 ./scripts/check-and-patch.sh
 ```
 
