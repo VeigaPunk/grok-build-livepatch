@@ -1,12 +1,16 @@
 [Unit]
 Description=Grok Build livepatch — ban general-purpose/explore and rebuild
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=@ROOT@
 ExecStart=@ROOT@/scripts/check-and-patch.sh
 Nice=10
+Environment=PATH=%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=CARGO_HOME=%h/.cargo
+Environment=RUSTUP_HOME=%h/.rustup
 # Optional: replace installed grok binary after successful build
 # Environment=GROK_LIVEPATCH_REPLACE_BIN=1
 

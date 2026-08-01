@@ -1,0 +1,17 @@
+# Local / tool noise
+.xbgst/
+agent-browser.json
+*.rej
+*.orig
+*~
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build / cargo (if ever run in-tree)
+/target/
+**/*.rs.bk

@@ -72,14 +72,16 @@ If `gh` is not logged in but SSH works (`ssh -T git@github.com` → `Hi VeigaPun
 ## Marketplace-friendly layout
 
 ```
-marketplace/   # optional grok plugin bundle (agents + install note)
+marketplace/   # plugin.json + install note; agents/ may be empty (no bundled agents)
 patches/       # 0001-ban-generic-subagents.patch
 scripts/       # check-and-patch.sh, install-timer.sh
 systemd/       # user timer units
 ```
 
+`marketplace/` is **metadata + install note only** — it does not ship specialist agents. `marketplace/agents/` can be empty. The livepatch itself is the parent repo (`scripts/`, `patches/`, timer). Plugin discovery:
+
 ```bash
-# add as local marketplace / plugin path
+# optional: register local marketplace path / install plugin metadata
 grok plugin marketplace add ./marketplace
 # or
 grok plugin install ./marketplace --trust
@@ -91,4 +93,4 @@ xbgst / xbrd godspeed walks should spawn **specialists** (`the-planner`, `scout`
 
 ## License
 
-Patches against Apache-2.0 `xai-org/grok-build`. This packaging is MIT OR Apache-2.0.
+Patches against Apache-2.0 `xai-org/grok-build`. This packaging is **MIT OR Apache-2.0** (see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)).

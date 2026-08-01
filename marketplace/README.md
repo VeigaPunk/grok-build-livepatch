@@ -1,6 +1,8 @@
 # grok-build-livepatch (plugin)
 
-Install the watcher from the parent repo:
+Metadata + install note only. **`agents/` may be empty** — this package does not ship specialist agents.
+
+Install the watcher from the **parent** repo:
 
 ```bash
 git clone https://github.com/VeigaPunk/grok-build-livepatch.git
@@ -8,4 +10,4 @@ cd grok-build-livepatch
 ./scripts/install-timer.sh
 ```
 
-This plugin metadata exists so `grok plugin install` / marketplace add can discover the package.
+`plugin.json` exists so `grok plugin install` / marketplace add can discover the package; the livepatch scripts and patch live one level up.
