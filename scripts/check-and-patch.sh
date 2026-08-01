@@ -88,27 +88,38 @@ ensure_source() {
   git -C "$SRC_DIR" fetch --tags --force origin 2>&1 | tee -a "$LOG" || true
   # Prefer main/synced tip
   git -C "$SRC_DIR" checkout -f main 2>/dev/null || git -C "$SRC_DIR" checkout -f master 2>/dev/null || true
-  git -C "$SRC_DIR" reset --hard origin/main 2>/dev/null \
-    || git -C "$SRC_DIR" reset --hard origin/master 2>/dev/null \
-    || git -C "$SRC_DIR" pull --ff-only 2>&1 | tee -a "$LOG" || true
+  if ! git -C "$SRC_DIR" reset --hard origin/main 2>/dev/null \
+    && ! git -C "$SRC_DIR" reset --hard origin/master 2>/dev/null; then
+    log "WARN: reset --hard origin/main|master failed; trying pull --ff-only"
+    git -C "$SRC_DIR" pull --ff-only 2>&1 | tee -a "$LOG" || log "WARN: source reset/pull failed — working tree may be stale"
+  fi
 }
 
 apply_patch() {
   cd "$SRC_DIR"
   # clean any previous livepatch branch
   git checkout -B livepatch/ban-generic-subagents
+  # 1) clean apply
   if git apply --check "$PATCH" 2>"$STATE_DIR/apply-check.err"; then
     git apply "$PATCH"
     log "patch applied cleanly"
     return 0
   fi
-  # try 3-way
+  # 2) already applied: reverse would succeed OR ban symbols present
+  if git apply --reverse --check "$PATCH" 2>"$STATE_DIR/apply-reverse-check.err" \
+    || git grep -q 'is_banned_subagent_type' -- '*.rs' 2>/dev/null; then
+    log "patch already present — noop"
+    return 0
+  fi
+  # 3) try 3-way
   if git apply --3way "$PATCH" 2>"$STATE_DIR/apply-3way.err"; then
     log "patch applied with 3-way merge"
     return 0
   fi
+  # 4) needs human
   log "PATCH FAILED — needs human rebase"
   cat "$STATE_DIR/apply-check.err" >>"$LOG" || true
+  cat "$STATE_DIR/apply-reverse-check.err" >>"$LOG" 2>/dev/null || true
   cat "$STATE_DIR/apply-3way.err" >>"$LOG" || true
   return 2
 }
