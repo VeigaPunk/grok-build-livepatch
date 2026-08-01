@@ -28,10 +28,13 @@ case "${1:-}" in
   --help|-h) usage; exit 0 ;;
 esac
 
-# Refuse when nested under a Grok marketplace plugin tree (standalone publish only).
-if [[ "$ROOT" == *"/grok-marketplace/"* ]] || [[ "$ROOT" == *"/plugins/xbgst-stack/livepatch"* ]]; then
-  echo "REFUSE: publish.sh under marketplace/xbgst-stack targets the standalone livepatch repo only."
-  echo "Ship marketplace from repo root: commit on main, git push -u origin main, move tag grok-stable."
+# Refuse when nested under marketplace / installed-plugin livepatch trees
+# (standalone public repo publish only).
+if [[ "$ROOT" == *"/grok-marketplace/"* ]] \
+  || [[ "$ROOT" == *"/plugins/xbgst-stack/livepatch"* ]] \
+  || [[ "$ROOT" == *"/installed-plugins/"*"/livepatch"* ]]; then
+  echo "REFUSE: publish.sh under marketplace/plugin livepatch targets the standalone livepatch repo only."
+  echo "Ship from ~/Projects/grok-build-livepatch: git push -u origin main (SSH)."
   exit 2
 fi
 

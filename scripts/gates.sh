@@ -52,6 +52,19 @@ echo "  ok help"
 echo "== install-timer --status =="
 ./scripts/install-timer.sh --status || true
 
+echo "== ban_in_binary (if install binary present) =="
+LIVE_BIN="${GROK_LIVEPATCH_INSTALL:-$HOME/.local/opt/grok-build-livepatch}/grok"
+if [[ -x "$LIVE_BIN" ]]; then
+  if grep -aobF 'are banned and will be rejected' "$LIVE_BIN" >/dev/null 2>&1; then
+    echo "  ok ban_in_binary=yes"
+  else
+    echo "  FAIL ban_in_binary=no ($LIVE_BIN lacks patched tool schema)" >&2
+    exit 1
+  fi
+else
+  echo "  skip (no $LIVE_BIN — run check-and-patch once)"
+fi
+
 if [[ "$WITH_PATCH" -eq 1 ]]; then
   echo "== patch apply --check (network) =="
   PATCH="$ROOT/patches/0001-ban-generic-subagents.patch"
