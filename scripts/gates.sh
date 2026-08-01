@@ -77,8 +77,26 @@ if [[ -f "$UNIT" ]]; then
   if [[ "$exec_line" == *"$ROOT"* ]] && [[ "$wd_line" == *"$ROOT"* ]]; then
     echo "  ok unit bound to this ROOT=$ROOT"
   elif [[ -n "$unit_wd" && -x "$unit_wd/scripts/check-and-patch.sh" && "$exec_line" == *"$unit_wd"* ]]; then
-    # Nested marketplace trees share the host unit with Projects (or another) checkout.
-    echo "  ok unit bound to peer livepatch ROOT=$unit_wd (this tree ROOT=$ROOT)"
+    # Peer livepatch tree (e.g. marketplace) may own the unit — require scripts match this tip.
+    drift=0
+    for rel in scripts/check-and-patch.sh scripts/install-timer.sh scripts/gates.sh patches/0001-ban-generic-subagents.patch; do
+      if [[ -f "$ROOT/$rel" && -f "$unit_wd/$rel" ]]; then
+        if ! cmp -s "$ROOT/$rel" "$unit_wd/$rel"; then
+          echo "  FAIL peer unit ROOT has drifted file: $rel" >&2
+          echo "    this: $ROOT/$rel" >&2
+          echo "    peer: $unit_wd/$rel" >&2
+          drift=1
+        fi
+      elif [[ -f "$ROOT/$rel" && ! -f "$unit_wd/$rel" ]]; then
+        echo "  FAIL peer unit ROOT missing: $rel" >&2
+        drift=1
+      fi
+    done
+    if [[ "$drift" -ne 0 ]]; then
+      echo "    fix: ./scripts/sync-stack-livepatch.sh  (or bind unit to this tree)" >&2
+      exit 1
+    fi
+    echo "  ok unit bound to peer livepatch ROOT=$unit_wd (scripts match this tree)"
   else
     echo "  FAIL unit not bound to a valid livepatch checkout:" >&2
     echo "    $exec_line" >&2
