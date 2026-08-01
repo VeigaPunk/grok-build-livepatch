@@ -47,6 +47,7 @@ echo "== --help =="
 ./scripts/install-timer.sh --help >/dev/null
 ./scripts/publish.sh --help >/dev/null
 ./scripts/gates.sh --help >/dev/null
+./scripts/sync-stack-livepatch.sh --help >/dev/null
 echo "  ok help"
 
 echo "== install-timer --status =="

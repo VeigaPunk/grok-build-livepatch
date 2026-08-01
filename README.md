@@ -32,6 +32,7 @@ chmod +x scripts/*.sh
 ./scripts/gates.sh --with-patch      # also clean-tree git apply --check (network)
 ./scripts/check-and-patch.sh          # first run (clone/fetch + cargo — network-heavy)
 ./scripts/install-timer.sh            # systemd --user timer @ 6h (binds ExecStart to this ROOT)
+./scripts/sync-stack-livepatch.sh    # optional: sync into local xbgst-stack copies + rebind
 ```
 
 Re-run `./scripts/install-timer.sh` after upgrades. It stamps `~/.local/state/grok-build-livepatch/preferred-install-root` and resolves ROOT as: `GROK_LIVEPATCH_ROOT` → stamp (if still valid) → this checkout. Use `./scripts/install-timer.sh --status` to verify the unit `ExecStart`. Plugin/marketplace copies of this script must be updated to honor the stamp, or they can rebind the timer; prefer installing from this public repo.
