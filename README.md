@@ -32,7 +32,7 @@ chmod +x scripts/*.sh
 ./scripts/install-timer.sh            # systemd --user timer @ 6h (binds ExecStart to this ROOT)
 ```
 
-Re-run `./scripts/install-timer.sh` after upgrades so the user unit does not keep pointing at an older xbgst-stack/plugin copy. The unit records absolute `WorkingDirectory`/`ExecStart` for the checkout that ran install.
+Re-run `./scripts/install-timer.sh` after upgrades. It stamps `~/.local/state/grok-build-livepatch/preferred-install-root` and resolves ROOT as: `GROK_LIVEPATCH_ROOT` → stamp (if still valid) → this checkout. Use `./scripts/install-timer.sh --status` to verify the unit `ExecStart`. Plugin/marketplace copies of this script must be updated to honor the stamp, or they can rebind the timer; prefer installing from this public repo.
 
 There is **no dry-run** that skips network on the zero-arg path; only `--help`/`-h` exits before clone/build.
 
