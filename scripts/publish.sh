@@ -10,6 +10,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Refuse when nested under a Grok marketplace plugin tree (standalone publish only).
+if [[ "$ROOT" == *"/grok-marketplace/"* ]] || [[ "$ROOT" == *"/plugins/xbgst-stack/livepatch"* ]]; then
+  echo "REFUSE: publish.sh under marketplace/xbgst-stack targets the standalone livepatch repo only."
+  echo "Ship marketplace from repo root: commit on main, git push -u origin main, move tag grok-stable."
+  exit 2
+fi
+
 usage() {
   cat <<'EOF'
 Usage: publish.sh [--help|-h]
