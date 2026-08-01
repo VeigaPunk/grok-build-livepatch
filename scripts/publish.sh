@@ -10,13 +10,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Refuse when nested under a Grok marketplace plugin tree (standalone publish only).
-if [[ "$ROOT" == *"/grok-marketplace/"* ]] || [[ "$ROOT" == *"/plugins/xbgst-stack/livepatch"* ]]; then
-  echo "REFUSE: publish.sh under marketplace/xbgst-stack targets the standalone livepatch repo only."
-  echo "Ship marketplace from repo root: commit on main, git push -u origin main, move tag grok-stable."
-  exit 2
-fi
-
 usage() {
   cat <<'EOF'
 Usage: publish.sh [--help|-h]
@@ -25,12 +18,22 @@ Create VeigaPunk/grok-build-livepatch (public) if missing, then git push -u orig
 
 Requires GH_TOKEN or existing gh login for repo create. Push uses origin SSH URL.
 See docs/PUBLISH.md for exact PAT steps when gh auth fails.
+
+When this script lives under a grok-marketplace plugin tree, non-help runs exit 2
+(REFUSE) so marketplace installs cannot rewrite remotes to the standalone repo.
 EOF
 }
 
 case "${1:-}" in
   --help|-h) usage; exit 0 ;;
 esac
+
+# Refuse when nested under a Grok marketplace plugin tree (standalone publish only).
+if [[ "$ROOT" == *"/grok-marketplace/"* ]] || [[ "$ROOT" == *"/plugins/xbgst-stack/livepatch"* ]]; then
+  echo "REFUSE: publish.sh under marketplace/xbgst-stack targets the standalone livepatch repo only."
+  echo "Ship marketplace from repo root: commit on main, git push -u origin main, move tag grok-stable."
+  exit 2
+fi
 
 if [[ -z "${GH_TOKEN:-}" ]]; then
   if ! gh auth status >/dev/null 2>&1; then
