@@ -95,7 +95,9 @@ ensure_source() {
   fi
 }
 
+# Sets APPLY_STATUS: applied | already-applied | three-way | needs-rebase | fail
 apply_patch() {
+  APPLY_STATUS=fail
   cd "$SRC_DIR"
   # clean any previous livepatch branch
   git checkout -B livepatch/ban-generic-subagents
@@ -103,21 +105,27 @@ apply_patch() {
   if git apply --check "$PATCH" 2>"$STATE_DIR/apply-check.err"; then
     git apply "$PATCH"
     log "patch applied cleanly"
+    APPLY_STATUS=applied
     return 0
   fi
-  # 2) already applied: reverse would succeed OR ban symbols present
-  if git apply --reverse --check "$PATCH" 2>"$STATE_DIR/apply-reverse-check.err" \
-    || git grep -q 'is_banned_subagent_type' -- '*.rs' 2>/dev/null; then
-    log "patch already present — noop"
+  # 2) already applied only if reverse --check succeeds (do not OR-grep symbols alone)
+  if git apply --reverse --check "$PATCH" 2>"$STATE_DIR/apply-reverse-check.err"; then
+    log "patch already present (reverse-check OK) — already-applied"
+    APPLY_STATUS=already-applied
     return 0
+  fi
+  if git grep -q 'is_banned_subagent_type' -- '*.rs' 2>/dev/null; then
+    log "WARN: ban symbols present but reverse --check failed — trying 3-way"
   fi
   # 3) try 3-way
   if git apply --3way "$PATCH" 2>"$STATE_DIR/apply-3way.err"; then
     log "patch applied with 3-way merge"
+    APPLY_STATUS=three-way
     return 0
   fi
   # 4) needs human
   log "PATCH FAILED — needs human rebase"
+  APPLY_STATUS=needs-rebase
   cat "$STATE_DIR/apply-check.err" >>"$LOG" || true
   cat "$STATE_DIR/apply-reverse-check.err" >>"$LOG" 2>/dev/null || true
   cat "$STATE_DIR/apply-3way.err" >>"$LOG" || true
@@ -187,6 +195,7 @@ main() {
     log "version match but ban symbols missing — re-applying"
   fi
 
+  APPLY_STATUS=fail
   set +e
   apply_patch
   rc=$?
@@ -199,6 +208,14 @@ main() {
   if [[ $rc -ne 0 ]]; then
     echo "fail" >"$STATE_DIR/last-result"
     exit 1
+  fi
+
+  # Full reverse-clean already-applied: integrity already proven; skip heavy rebuild
+  if [[ "${APPLY_STATUS:-}" == "already-applied" ]]; then
+    echo "${upstream:-$(ts)}" >"$STATE_DIR/last-patched-version"
+    echo "already-applied $(ts)" >"$STATE_DIR/last-result"
+    log "=== livepatch already-applied (noop rebuild) ==="
+    exit 0
   fi
 
   run_unit_smoke
