@@ -102,6 +102,7 @@ print_status() {
     echo "unit=$UNIT"
     echo "  $exec_line"
     grep -E '^WorkingDirectory=' "$UNIT" || true
+    grep -E '^Environment=GROK_LIVEPATCH_REPLACE_BIN=' "$UNIT" || echo "  Environment=GROK_LIVEPATCH_REPLACE_BIN=(unset)"
   else
     echo "unit=(not installed)"
   fi
