@@ -104,6 +104,13 @@ ensure_source() {
     git clone --depth 1 https://github.com/xai-org/grok-build.git "$SRC_DIR"
   fi
   log "fetching upstream in $SRC_DIR"
+  # Shallow-safe: advance origin/main (or master) explicitly, then tags.
+  # Bare `fetch --tags` alone can leave origin/main stale on depth-1 clones.
+  if ! git -C "$SRC_DIR" fetch --depth 1 --force origin main:refs/remotes/origin/main 2>&1 | tee -a "$LOG"; then
+    git -C "$SRC_DIR" fetch --depth 1 --force origin master:refs/remotes/origin/master 2>&1 | tee -a "$LOG" \
+      || git -C "$SRC_DIR" fetch --force origin 2>&1 | tee -a "$LOG" \
+      || log "WARN: fetch origin failed"
+  fi
   git -C "$SRC_DIR" fetch --tags --force origin 2>&1 | tee -a "$LOG" || true
   # Prefer main/synced tip
   git -C "$SRC_DIR" checkout -f main 2>/dev/null || git -C "$SRC_DIR" checkout -f master 2>/dev/null || true

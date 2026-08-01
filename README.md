@@ -29,8 +29,10 @@ chmod +x scripts/*.sh
 ./scripts/check-and-patch.sh --help   # usage only; no network
 ./scripts/install-timer.sh --help
 ./scripts/check-and-patch.sh          # first run (clone/fetch + cargo — network-heavy)
-./scripts/install-timer.sh            # systemd --user timer @ 6h
+./scripts/install-timer.sh            # systemd --user timer @ 6h (binds ExecStart to this ROOT)
 ```
+
+Re-run `./scripts/install-timer.sh` after upgrades so the user unit does not keep pointing at an older xbgst-stack/plugin copy. The unit records absolute `WorkingDirectory`/`ExecStart` for the checkout that ran install.
 
 There is **no dry-run** that skips network on the zero-arg path; only `--help`/`-h` exits before clone/build.
 
