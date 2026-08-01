@@ -40,7 +40,9 @@ Optional: replace the installed `grok` binary after a successful build:
 GROK_LIVEPATCH_REPLACE_BIN=1 ./scripts/check-and-patch.sh
 ```
 
-State + logs: `~/.local/state/grok-build-livepatch/`
+State + logs: `~/.local/state/grok-build-livepatch/` (`last-result` may be `ok`, `noop`, `already-applied`, `needs-rebase`, or `fail`).
+
+**Already-applied:** the watcher treats reverse-`git apply --check` success as idempotent success (exit 0). A bare forward `git apply --check` on an already-patched working tree is expected to fail and is **not** the ship gate — use a clean upstream clone for integrity checks.
 
 ## Musketeer / Grok scheduler (6h prompt)
 
