@@ -8,6 +8,31 @@
 #   2  new release detected but patch did not apply cleanly (needs human)
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Usage: check-and-patch.sh [--help|-h]
+
+Check for a new Grok Build CLI release and re-apply the ban-generic-subagents
+livepatch (clone/fetch, cargo build — network-heavy).
+
+  --help, -h   Print this help and exit 0 (no network, no clone).
+
+Zero-arg path runs the full check (may network). There is no dry-run flag;
+only --help skips network without other flags.
+
+Env:
+  GROK_LIVEPATCH_STATE, GROK_BUILD_SRC, GROK_LIVEPATCH_INSTALL,
+  GROK_LIVEPATCH_FORCE=1, GROK_LIVEPATCH_REPLACE_BIN=1
+EOF
+}
+
+case "${1:-}" in
+  --help|-h)
+    usage
+    exit 0
+    ;;
+esac
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_DIR="${GROK_LIVEPATCH_STATE:-$HOME/.local/state/grok-build-livepatch}"
 SRC_DIR="${GROK_BUILD_SRC:-$HOME/Projects/grok-build}"

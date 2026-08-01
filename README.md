@@ -26,9 +26,13 @@ Upstream constants for GP/explore prompts remain for legacy rendering only; they
 git clone https://github.com/VeigaPunk/grok-build-livepatch.git
 cd grok-build-livepatch
 chmod +x scripts/*.sh
-./scripts/check-and-patch.sh          # first run
+./scripts/check-and-patch.sh --help   # usage only; no network
+./scripts/install-timer.sh --help
+./scripts/check-and-patch.sh          # first run (clone/fetch + cargo — network-heavy)
 ./scripts/install-timer.sh            # systemd --user timer @ 6h
 ```
+
+There is **no dry-run** that skips network on the zero-arg path; only `--help`/`-h` exits before clone/build.
 
 Optional: replace the installed `grok` binary after a successful build:
 
@@ -60,6 +64,10 @@ In Grok Build TUI:
 ## GitHub Actions
 
 `.github/workflows/watch-release.yml` runs on a **6h cron**, applies the patch to a fresh clone of `xai-org/grok-build`, runs `cargo test -p xai-tool-types banned_subagent`, and opens a `livepatch-break` issue if the patch no longer applies.
+
+## Publish this repo (maintainers)
+
+If `gh` is not logged in but SSH works (`ssh -T git@github.com` → `Hi VeigaPunk!`), create the public repo with a PAT then push over SSH. Exact steps: **[docs/PUBLISH.md](docs/PUBLISH.md)**. Helper: `GH_TOKEN=… ./scripts/publish.sh`.
 
 ## Marketplace-friendly layout
 
