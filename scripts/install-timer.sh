@@ -16,14 +16,13 @@ no network from this script).
   --link-bin   Symlink ~/.grok/bin/grok → ~/.local/opt/grok-build-livepatch/grok
                if that binary exists (opt-in; timer unit defaults REPLACE_BIN=1).
 
-Root resolution (first match wins):
+Install root resolution (first match wins):
   1) GROK_LIVEPATCH_ROOT if it contains scripts/check-and-patch.sh
-  2) ~/.local/state/grok-build-livepatch/preferred-install-root (if still valid)
-  3) directory of this script (the checkout you ran)
+  2) preferred-install-root stamp ONLY if GROK_LIVEPATCH_KEEP_STAMP=1
+  3) directory of this script (the checkout you ran) — always wins over a
+     stale stamp so re-running install-timer from Projects reclaims the unit
 
-Successful install writes preferred-install-root so later installs from a
-plugin/marketplace copy keep the timer on the preferred checkout unless you
-export GROK_LIVEPATCH_ROOT or delete the stamp.
+Successful install always rewrites preferred-install-root to the resolved ROOT.
 EOF
 }
 
@@ -36,13 +35,14 @@ INSTALL_DIR="${GROK_LIVEPATCH_INSTALL:-$HOME/.local/opt/grok-build-livepatch}"
 BIN_LINK="${GROK_BIN_LINK:-$HOME/.grok/bin/grok}"
 LIVE_BIN="$INSTALL_DIR/grok"
 
+# Install path: explicit ROOT, optional KEEP_STAMP, else the checkout that ran this script.
 resolve_root() {
   local cand
   if [[ -n "${GROK_LIVEPATCH_ROOT:-}" && -x "${GROK_LIVEPATCH_ROOT}/scripts/check-and-patch.sh" ]]; then
     printf '%s\n' "$(cd "$GROK_LIVEPATCH_ROOT" && pwd)"
     return
   fi
-  if [[ -f "$PREF_FILE" ]]; then
+  if [[ "${GROK_LIVEPATCH_KEEP_STAMP:-}" == "1" && -f "$PREF_FILE" ]]; then
     cand=$(tr -d '\r\n' <"$PREF_FILE" || true)
     if [[ -n "$cand" && -x "$cand/scripts/check-and-patch.sh" ]]; then
       printf '%s\n' "$cand"
@@ -166,16 +166,9 @@ if [[ -n "$PREV_EXEC" && "$PREV_EXEC" != "$NEW_EXEC" ]]; then
   echo "  now: $NEW_EXEC"
 fi
 
-# Stamp preferred root so plugin reinstalls keep this checkout (if they honor stamp).
-# When installing from SCRIPT_ROOT, always refresh stamp to this checkout.
-# When SCRIPT_ROOT differs but stamp already preferred this ROOT, keep stamp.
-if [[ "$SCRIPT_ROOT" == "$ROOT" ]] || [[ ! -f "$PREF_FILE" ]] || [[ -n "${GROK_LIVEPATCH_ROOT:-}" ]]; then
-  printf '%s\n' "$ROOT" >"$PREF_FILE"
-  echo "stamped preferred-install-root → $ROOT"
-elif [[ "$(tr -d '\r\n' <"$PREF_FILE" 2>/dev/null || true)" != "$ROOT" ]]; then
-  # Resolved via stamp already; leave stamp
-  echo "keeping preferred-install-root → $ROOT"
-fi
+# Always stamp the ROOT we just installed (reclaim-friendly).
+printf '%s\n' "$ROOT" >"$PREF_FILE"
+echo "stamped preferred-install-root → $ROOT"
 
 systemctl --user daemon-reload
 systemctl --user enable --now grok-build-livepatch.timer
