@@ -1,0 +1,201 @@
+diff --git c/crates/codegen/xai-grok-agent/src/config.rs w/crates/codegen/xai-grok-agent/src/config.rs
+index 4bedcd8..21f6bbd 100644
+--- c/crates/codegen/xai-grok-agent/src/config.rs
++++ w/crates/codegen/xai-grok-agent/src/config.rs
+@@ -673,8 +673,9 @@ where
+ /// are defined in exactly one place. The enum covers all built-in
+ /// agents for centralized name management and `by_name()` dispatch.
+ ///
+-/// `subagent_variants()` returns only the 3 that are exposed to the LLM
+-/// via the `TaskTool` description. The remaining 6 are top-level agent
++/// `subagent_variants()` returns only the built-ins exposed to the LLM
++/// via the `TaskTool` description. `general-purpose` and `explore` are
++/// hard-banned and omitted. Remaining enum variants are top-level agent
+ /// profiles resolvable by name but not advertised as subagent types.
+ #[derive(
+     Debug, Clone, Copy, PartialEq, Eq, Hash, Display, EnumString, EnumIter, AsRefStr, IntoStaticStr,
+@@ -725,8 +726,11 @@ impl BuiltinAgentName {
+         }
+     }
+     /// Built-in agents available as subagents via the Task tool.
++    ///
++    /// `GeneralPurpose` and `Explore` are intentionally excluded — they are
++    /// hard-banned at spawn validation (`is_banned_subagent_type`).
+     pub fn subagent_variants() -> &'static [Self] {
+-        &[Self::GeneralPurpose, Self::Explore, Self::Plan]
++        &[Self::Plan]
+     }
+ }
+ /// Portable agent identity — parsed from .grok/agents/*.md.
+@@ -2552,9 +2556,9 @@ description: Test default tool config
+     #[test]
+     fn test_builtin_agent_name_subagent_variants() {
+         let variants = BuiltinAgentName::subagent_variants();
+-        assert_eq!(variants.len(), 3);
+-        assert!(variants.contains(&BuiltinAgentName::GeneralPurpose));
+-        assert!(variants.contains(&BuiltinAgentName::Explore));
++        assert_eq!(variants.len(), 1);
++        assert!(!variants.contains(&BuiltinAgentName::GeneralPurpose));
++        assert!(!variants.contains(&BuiltinAgentName::Explore));
+         assert!(variants.contains(&BuiltinAgentName::Plan));
+     }
+     #[test]
+diff --git c/crates/codegen/xai-grok-agent/src/discovery.rs w/crates/codegen/xai-grok-agent/src/discovery.rs
+index 4f66263..ae2aa67 100644
+--- c/crates/codegen/xai-grok-agent/src/discovery.rs
++++ w/crates/codegen/xai-grok-agent/src/discovery.rs
+@@ -309,10 +309,10 @@ fn by_name_in_cwd_with_home(
+ /// These are the pre-defined agent profiles that can be launched via the
+ /// Task tool. User/project-level agent files can shadow these by name.
+ ///
+-/// The list covers the core built-in agents:
+-/// - `general-purpose` — all tools, autonomous research & multi-step tasks
+-/// - `explore` — fast read-only codebase exploration (fast model hint)
++/// The list covers the core built-in agents advertised as subagents:
+ /// - `plan` — read-only architecture & implementation planning
++///
++/// Note: `general-purpose` and `explore` are hard-banned and omitted.
+ pub fn builtin_subagents() -> Vec<AgentDefinition> {
+     BuiltinAgentName::subagent_variants()
+         .iter()
+diff --git c/crates/codegen/xai-grok-subagent-resolution/src/definition.rs w/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
+index ad98001..a5d1f16 100644
+--- c/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
++++ w/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
+@@ -108,6 +108,13 @@ pub fn gate_agent_definition(
+     subagent_type: &str,
+     context: &DefinitionResolutionContext<'_>,
+ ) -> Result<(), ResolutionError> {
++    // Hard-ban legacy generic built-ins. Even if shadowed by a user agent
++    // file or re-enabled in [subagents.toggle], these names cannot spawn.
++    if xai_tool_types::is_banned_subagent_type(subagent_type) {
++        return Err(ResolutionError::Disabled {
++            subagent_type: subagent_type.to_string(),
++        });
++    }
+     if !context.toggles.get(subagent_type).copied().unwrap_or(true) {
+         return Err(ResolutionError::Disabled {
+             subagent_type: subagent_type.to_string(),
+diff --git c/crates/common/xai-tool-types/src/lib.rs w/crates/common/xai-tool-types/src/lib.rs
+index fd19d74..8680d81 100644
+--- c/crates/common/xai-tool-types/src/lib.rs
++++ w/crates/common/xai-tool-types/src/lib.rs
+@@ -19,7 +19,7 @@ pub use task::{
+     TaskOutputOutput, TaskOutputResult, TaskOutputToolInput, TaskOutputToolNaming, TaskToolInput,
+     TaskToolNaming, WaitMode, WaitTasksToolInput, WaitTasksToolNaming, build_kill_task_description,
+     build_task_description, build_task_output_description, build_wait_tasks_description,
+-    builtin_subagent_by_name, default_subagent_type, format_resume_footer,
++    builtin_subagent_by_name, default_subagent_type, is_banned_subagent_type, BANNED_SUBAGENT_TYPES, format_resume_footer,
+     format_subagent_completed, format_subagent_started_background, format_wait_cap_ms,
+     is_not_sentinel, max_wait_block_ms, resolve_task_ids, sanitize_optional_arg, task_output_waits,
+     task_output_waits_from_json,
+diff --git c/crates/common/xai-tool-types/src/task.rs w/crates/common/xai-tool-types/src/task.rs
+index 4454b7c..f79bf20 100644
+--- c/crates/common/xai-tool-types/src/task.rs
++++ w/crates/common/xai-tool-types/src/task.rs
+@@ -20,10 +20,11 @@ pub struct TaskToolInput {
+     #[schemars(description = "Short description of the task (3-5 words).")]
+     pub description: String,
+ 
+-    /// Name of the subagent type to launch. Built-in types: "general-purpose",
+-    /// "explore", "plan". Additional user-defined types may also be available.
++    /// Name of the subagent type to launch. Built-in: "plan".
++    /// "general-purpose" and "explore" are hard-banned and cannot be spawned.
++    /// User-defined agents (e.g. under ~/.grok/agents/) are also available.
+     #[schemars(
+-        description = "Name of the subagent type to launch. Built-in types: \"general-purpose\", \"explore\", \"plan\". Additional user-defined types may also be available."
++        description = "Name of the subagent type to launch. Built-in: \"plan\". Types \"general-purpose\" and \"explore\" are banned and will be rejected. User-defined types from agent files may also be available."
+     )]
+     #[serde(default = "default_subagent_type")]
+     pub subagent_type: String,
+@@ -109,9 +110,24 @@ pub struct TaskToolInput {
+     pub task_id: Option<String>,
+ }
+ 
++/// Built-in subagent type names that must never be spawned.
++///
++/// These legacy generics encourage unfocused agent loops. Prefer explicit
++/// user-defined specialists (or the remaining built-in `plan`).
++pub const BANNED_SUBAGENT_TYPES: &[&str] = &["general-purpose", "explore"];
++
++/// True when `name` is a hard-banned subagent type (case-sensitive).
++#[inline]
++pub fn is_banned_subagent_type(name: &str) -> bool {
++    BANNED_SUBAGENT_TYPES.iter().any(|b| *b == name)
++}
++
+ /// Default `subagent_type` for [`TaskToolInput`] when the caller omits it.
++///
++/// Defaults to `plan` (the only remaining built-in). Callers should still
++/// pick an explicit specialist whenever a user-defined agent fits better.
+ pub fn default_subagent_type() -> String {
+-    "general-purpose".to_string()
++    "plan".to_string()
+ }
+ 
+ /// True when `s` is not a model-emitted placeholder (`""`, `"null"`, `"none"`,
+@@ -860,13 +876,25 @@ pub const PLAN_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
+ };
+ 
+ /// The built-in subagent types advertised to the model, in display order.
+-pub const BUILTIN_SUBAGENTS: [BuiltinSubagent; 3] =
+-    [GENERAL_PURPOSE_SUBAGENT, EXPLORE_SUBAGENT, PLAN_SUBAGENT];
++///
++/// `general-purpose` and `explore` remain defined as constants for
++/// backwards-compat test/prompt rendering, but are **not** advertised and
++/// are hard-banned at spawn validation via [`is_banned_subagent_type`].
++pub const BUILTIN_SUBAGENTS: [BuiltinSubagent; 1] = [PLAN_SUBAGENT];
+ 
+ /// Look up a built-in subagent by its `subagent_type` name
+-/// (e.g. `"explore"`), or `None` for user-defined / unknown types.
++/// (e.g. `"plan"`), or `None` for user-defined / unknown types.
++///
++/// Note: `general-purpose` and `explore` still resolve here for legacy
++/// prompt rendering, but they are hard-banned at spawn time and are not
++/// listed in [`BUILTIN_SUBAGENTS`].
+ pub fn builtin_subagent_by_name(name: &str) -> Option<&'static BuiltinSubagent> {
+-    BUILTIN_SUBAGENTS.iter().find(|b| b.name == name)
++    static ALL: &[BuiltinSubagent] = &[
++        PLAN_SUBAGENT,
++        GENERAL_PURPOSE_SUBAGENT,
++        EXPLORE_SUBAGENT,
++    ];
++    ALL.iter().find(|b| b.name == name)
+ }
+ 
+ /// Tool/parameter names (and optional features) that vary between products when
+@@ -1170,7 +1198,7 @@ mod tests {
+     fn task_tool_input_defaults_background_true() {
+         let input: TaskToolInput =
+             serde_json::from_str(r#"{"description": "test", "prompt": "do it"}"#).unwrap();
+-        assert_eq!(input.subagent_type, "general-purpose");
++        assert_eq!(input.subagent_type, "plan");
+         assert!(
+             input.run_in_background,
+             "run_in_background should default to true"
+@@ -1332,7 +1360,7 @@ mod tests {
+     fn builtin_subagent_catalog_names_and_descriptor_conversion() {
+         assert_eq!(
+             BUILTIN_SUBAGENTS.map(|b| b.name),
+-            ["general-purpose", "explore", "plan"]
++            ["plan"]
+         );
+ 
+         let desc = EXPLORE_SUBAGENT.to_descriptor(&plain_tool_naming());
+@@ -1351,6 +1379,16 @@ mod tests {
+     }
+ 
+     #[test]
++    
++    #[test]
++    fn banned_subagent_types_are_recognized() {
++        assert!(is_banned_subagent_type("general-purpose"));
++        assert!(is_banned_subagent_type("explore"));
++        assert!(!is_banned_subagent_type("plan"));
++        assert!(!is_banned_subagent_type("the-planner"));
++        assert!(!is_banned_subagent_type("scout"));
++    }
++
+     fn builtin_subagent_by_name_finds_builtins_only() {
+         assert_eq!(
+             builtin_subagent_by_name("explore").map(|b| b.name),

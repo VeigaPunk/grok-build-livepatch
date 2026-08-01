@@ -1,0 +1,14 @@
+[Unit]
+Description=Grok Build livepatch — ban general-purpose/explore and rebuild
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/scripts/check-and-patch.sh
+Nice=10
+# Optional: replace installed grok binary after successful build
+# Environment=GROK_LIVEPATCH_REPLACE_BIN=1
+
+[Install]
+WantedBy=default.target

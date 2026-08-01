@@ -1,0 +1,13 @@
+{
+  "name": "grok-build-livepatch",
+  "version": "0.1.0",
+  "description": "Hard-ban general-purpose and explore subagents; 6h livepatch watcher for xai-org/grok-build.",
+  "author": {
+    "name": "VeigaPunk",
+    "url": "https://github.com/VeigaPunk"
+  },
+  "homepage": "https://github.com/VeigaPunk/grok-build-livepatch",
+  "repository": "https://github.com/VeigaPunk/grok-build-livepatch",
+  "license": "MIT OR Apache-2.0",
+  "keywords": ["xbgst", "subagents", "livepatch", "grok-build"]
+}

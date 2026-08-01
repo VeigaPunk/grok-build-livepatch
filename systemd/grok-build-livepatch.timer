@@ -1,0 +1,12 @@
+[Unit]
+Description=Every 6h: check Grok Build upstream and re-apply livepatch
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec=6h
+AccuracySec=5m
+Persistent=true
+Unit=grok-build-livepatch.service
+
+[Install]
+WantedBy=timers.target
