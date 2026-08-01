@@ -92,7 +92,8 @@ fetch_upstream_version() {
 }
 
 last_patched() {
-  cat "$STATE_DIR/last-patched-version" 2>/dev/null || true
+  # Trim whitespace/newlines so version-match compares cleanly against tags.
+  tr -d '\r\n' <"$STATE_DIR/last-patched-version" 2>/dev/null | head -c 128 || true
 }
 
 ensure_source() {
