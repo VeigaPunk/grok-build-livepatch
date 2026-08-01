@@ -68,18 +68,22 @@ else
   echo "  skip (no $LIVE_BIN — run check-and-patch once)"
 fi
 
-echo "== unit ExecStart bound to this ROOT (if unit installed) =="
+echo "== unit ExecStart bound to a livepatch ROOT (if unit installed) =="
 UNIT="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/grok-build-livepatch.service"
 if [[ -f "$UNIT" ]]; then
   exec_line=$(grep -E '^ExecStart=' "$UNIT" | head -1 || true)
   wd_line=$(grep -E '^WorkingDirectory=' "$UNIT" | head -1 || true)
+  unit_wd=${wd_line#WorkingDirectory=}
   if [[ "$exec_line" == *"$ROOT"* ]] && [[ "$wd_line" == *"$ROOT"* ]]; then
-    echo "  ok unit bound to $ROOT"
+    echo "  ok unit bound to this ROOT=$ROOT"
+  elif [[ -n "$unit_wd" && -x "$unit_wd/scripts/check-and-patch.sh" && "$exec_line" == *"$unit_wd"* ]]; then
+    # Nested marketplace trees share the host unit with Projects (or another) checkout.
+    echo "  ok unit bound to peer livepatch ROOT=$unit_wd (this tree ROOT=$ROOT)"
   else
-    echo "  FAIL unit not bound to this checkout:" >&2
+    echo "  FAIL unit not bound to a valid livepatch checkout:" >&2
     echo "    $exec_line" >&2
     echo "    $wd_line" >&2
-    echo "    expected ROOT=$ROOT" >&2
+    echo "    this tree ROOT=$ROOT" >&2
     echo "    fix: ./scripts/install-timer.sh  or  ./scripts/sync-stack-livepatch.sh" >&2
     exit 1
   fi
