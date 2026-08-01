@@ -10,8 +10,10 @@ Usage: gates.sh [--help|-h] [--with-patch]
 
 Run local health gates:
   - bash -n on scripts/*.sh
-  - --help on check-and-patch, install-timer, publish, gates
+  - --help on check-and-patch, install-timer, publish, gates, sync-stack
   - install-timer --status (non-fatal if systemd missing)
+  - ban_in_binary if install binary exists
+  - user unit ExecStart bound to this ROOT (skip if unit absent — e.g. CI)
 
   --with-patch   Also shallow-clone upstream and git apply --check the livepatch
                  (network). Default path is offline.
@@ -64,6 +66,25 @@ if [[ -x "$LIVE_BIN" ]]; then
   fi
 else
   echo "  skip (no $LIVE_BIN — run check-and-patch once)"
+fi
+
+echo "== unit ExecStart bound to this ROOT (if unit installed) =="
+UNIT="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/grok-build-livepatch.service"
+if [[ -f "$UNIT" ]]; then
+  exec_line=$(grep -E '^ExecStart=' "$UNIT" | head -1 || true)
+  wd_line=$(grep -E '^WorkingDirectory=' "$UNIT" | head -1 || true)
+  if [[ "$exec_line" == *"$ROOT"* ]] && [[ "$wd_line" == *"$ROOT"* ]]; then
+    echo "  ok unit bound to $ROOT"
+  else
+    echo "  FAIL unit not bound to this checkout:" >&2
+    echo "    $exec_line" >&2
+    echo "    $wd_line" >&2
+    echo "    expected ROOT=$ROOT" >&2
+    echo "    fix: ./scripts/install-timer.sh  or  ./scripts/sync-stack-livepatch.sh" >&2
+    exit 1
+  fi
+else
+  echo "  skip (no user unit — OK for CI / pre-install)"
 fi
 
 if [[ "$WITH_PATCH" -eq 1 ]]; then
