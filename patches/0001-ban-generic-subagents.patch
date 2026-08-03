@@ -1,3 +1,196 @@
+diff --git c/crates/codegen/xai-grok-agent/src/builder.rs w/crates/codegen/xai-grok-agent/src/builder.rs
+index ab7c556..d4bc776 100644
+--- c/crates/codegen/xai-grok-agent/src/builder.rs
++++ w/crates/codegen/xai-grok-agent/src/builder.rs
+@@ -1227,9 +1227,9 @@ const TASK_TOOL_NAMING: xai_tool_types::TaskToolNaming<'static> = xai_tool_types
+ /// Concise task-tool description for child sessions. Delegation from a child
+ /// is possible but discouraged — prefer doing the work directly.
+ ///
+-/// NOTE: This hardcodes the built-in agent type names ("general-purpose",
+-/// "explore", "plan"). If custom child-visible subagent types become common,
+-/// consider generating this list dynamically like the parent description does.
++/// NOTE: Built-in spawnable type is `"plan"` only. `general-purpose` and
++/// `explore` are hard-banned at spawn. If custom child-visible subagent types
++/// become common, generate this list dynamically like the parent description.
+ const CHILD_TASK_DESCRIPTION: &str = "\
+ Launch a sub-agent to handle a specific sub-task. Use this only when \n\
+ the sub-task is clearly independent and would benefit from a separate \n\
+@@ -1237,7 +1237,8 @@ context (e.g., a parallel search while you continue working).\n\
+ \n\
+ Prefer doing the work yourself unless delegation is clearly necessary.\n\
+ \n\
+-Usage: specify ${{ params.task.subagent_type }} (\"general-purpose\", \"explore\", or \"plan\"), \n\
++Usage: specify ${{ params.task.subagent_type }} (\"plan\" — the only built-in; \
++\"general-purpose\" and \"explore\" are banned), \n\
+ a short ${{ params.task.description }}, and a detailed ${{ params.task.prompt }}.\n\
+ ${{ params.task.run_in_background }}: Returns immediately with a subagent_id. Use the task output tool to retrieve results. This is set to true by default.";
+ /// CLI [`xai_tool_types::SubagentToolNaming`]: each kind maps to its
+@@ -1350,31 +1351,30 @@ mod tests {
+     }
+     #[test]
+     fn build_task_description_builtin_includes_tools() {
+-        let subagents = vec![
+-            entry(
+-                "general-purpose",
+-                "General-purpose agent.",
+-                SubagentSource::Builtin(BuiltinAgentName::GeneralPurpose),
+-            ),
+-            entry(
+-                "explore",
+-                "Explore agent.",
+-                SubagentSource::Builtin(BuiltinAgentName::Explore),
+-            ),
+-        ];
++        // Only plan is a spawnable builtin; GP/explore remain renderable constants
++        // but are not advertised as Task targets.
++        let subagents = vec![entry(
++            "plan",
++            "Plan agent.",
++            SubagentSource::Builtin(BuiltinAgentName::Plan),
++        )];
+         let desc = build_task_description(&subagents, &[]);
+         assert!(
+-            desc.contains(xai_tool_types::GENERAL_PURPOSE_SUBAGENT.tools_template),
+-            "should include general-purpose tool names"
++            desc.contains(xai_tool_types::PLAN_SUBAGENT.tools_template),
++            "should include plan tool names"
+         );
+         assert!(
+-            desc.contains(xai_tool_types::EXPLORE_SUBAGENT.tools_template),
+-            "should include explore tool names"
+-        );
+-        assert!(
+-            desc.contains("- **general-purpose**: General-purpose agent."),
++            desc.contains("- **plan**: Plan agent."),
+             "should include agent entry"
+         );
++        assert!(
++            !desc.contains("- **general-purpose**:"),
++            "must not advertise banned general-purpose"
++        );
++        assert!(
++            !desc.contains("- **explore**:"),
++            "must not advertise banned explore"
++        );
+     }
+     #[test]
+     fn build_task_description_user_entry_is_raw() {
+@@ -1410,32 +1410,32 @@ mod tests {
+     #[test]
+     fn build_task_description_shadowed_builtin_uses_user_desc() {
+         let subagents = vec![SubagentEntry {
+-            name: "explore".to_string(),
+-            description: "My custom explore agent.".to_string(),
++            name: "plan".to_string(),
++            description: "My custom plan agent.".to_string(),
+             source: SubagentSource::UserDefined {
+                 scope: AgentScope::Project,
+             },
+-            shadows_builtin: Some(BuiltinAgentName::Explore),
++            shadows_builtin: Some(BuiltinAgentName::Plan),
+             config_source: xai_grok_tools::types::config_source::ConfigSource::Project {
+                 path: std::path::PathBuf::new(),
+             },
+         }];
+         let desc = build_task_description(&subagents, &[]);
+         assert!(
+-            desc.contains("- **explore**: My custom explore agent."),
++            desc.contains("- **plan**: My custom plan agent."),
+             "shadowed built-in should use user description"
+         );
+         assert!(
+-            !desc.contains(xai_tool_types::EXPLORE_SUBAGENT.tools_template),
++            !desc.contains(xai_tool_types::PLAN_SUBAGENT.tools_template),
+             "shadowed built-in should NOT include built-in tool fragment"
+         );
+     }
+     #[test]
+     fn build_task_description_contains_header_and_footer() {
+         let subagents = vec![entry(
+-            "explore",
+-            "Explore.",
+-            SubagentSource::Builtin(BuiltinAgentName::Explore),
++            "plan",
++            "Plan.",
++            SubagentSource::Builtin(BuiltinAgentName::Plan),
+         )];
+         let desc = build_task_description(&subagents, &[]);
+         assert!(
+@@ -1450,9 +1450,9 @@ mod tests {
+     #[test]
+     fn build_task_description_uses_template_variables() {
+         let subagents = vec![entry(
+-            "explore",
+-            "Explore.",
+-            SubagentSource::Builtin(BuiltinAgentName::Explore),
++            "plan",
++            "Plan.",
++            SubagentSource::Builtin(BuiltinAgentName::Plan),
+         )];
+         let desc = build_task_description(&subagents, &[]);
+         assert!(
+@@ -1475,9 +1475,9 @@ mod tests {
+     #[test]
+     fn build_task_description_lists_public_model_slugs() {
+         let subagents = vec![entry(
+-            "explore",
+-            "Explore.",
+-            SubagentSource::Builtin(BuiltinAgentName::Explore),
++            "plan",
++            "Plan.",
++            SubagentSource::Builtin(BuiltinAgentName::Plan),
+         )];
+         let desc = build_task_description(
+             &subagents,
+@@ -1497,9 +1497,9 @@ mod tests {
+     #[test]
+     fn build_task_description_handles_empty_model_catalog() {
+         let subagents = vec![entry(
+-            "explore",
+-            "Explore.",
+-            SubagentSource::Builtin(BuiltinAgentName::Explore),
++            "plan",
++            "Plan.",
++            SubagentSource::Builtin(BuiltinAgentName::Plan),
+         )];
+         let desc = build_task_description(&subagents, &[]);
+         assert!(desc.contains("No explicit model slugs are currently available."));
+@@ -1546,9 +1546,9 @@ mod tests {
+     #[test]
+     fn build_task_description_contains_resume_from_guidance() {
+         let subagents = vec![entry(
+-            "general-purpose",
+-            "GP agent.",
+-            SubagentSource::Builtin(BuiltinAgentName::GeneralPurpose),
++            "plan",
++            "Plan agent.",
++            SubagentSource::Builtin(BuiltinAgentName::Plan),
+         )];
+         let desc = build_task_description(&subagents, &[]);
+         assert!(
+@@ -1568,6 +1568,22 @@ mod tests {
+             "should state the resumed agent must match subagent_type"
+         );
+     }
++    #[test]
++    fn child_task_description_does_not_advertise_banned_types_as_spawnable() {
++        assert!(
++            CHILD_TASK_DESCRIPTION.contains("\"plan\""),
++            "child Task ad must mention plan"
++        );
++        assert!(
++            CHILD_TASK_DESCRIPTION.contains("banned"),
++            "child Task ad must state GP/explore are banned"
++        );
++        // Must not list GP/explore as peer choices of plan.
++        assert!(
++            !CHILD_TASK_DESCRIPTION.contains("\"general-purpose\", \"explore\", or \"plan\""),
++            "must not list banned types as spawn options"
++        );
++    }
+     /// The bridge's full-discovery snapshot must record every discovered
+     /// skill name — including `paths:`-gated and preloaded skills that the
+     /// listing baseline (`slash_skills`) holds back — so session-start
 diff --git c/crates/codegen/xai-grok-agent/src/config.rs w/crates/codegen/xai-grok-agent/src/config.rs
 index 4bedcd8..21f6bbd 100644
 --- c/crates/codegen/xai-grok-agent/src/config.rs
@@ -41,9 +234,18 @@ index 4bedcd8..21f6bbd 100644
      }
      #[test]
 diff --git c/crates/codegen/xai-grok-agent/src/discovery.rs w/crates/codegen/xai-grok-agent/src/discovery.rs
-index 4f66263..ae2aa67 100644
+index 4f66263..88d9542 100644
 --- c/crates/codegen/xai-grok-agent/src/discovery.rs
 +++ w/crates/codegen/xai-grok-agent/src/discovery.rs
+@@ -65,7 +65,7 @@ pub enum SubagentSource {
+ 
+ /// Build the complete list of enabled subagents.
+ ///
+-/// 1. Start with built-in subagent definitions (general-purpose, explore, plan)
++/// 1. Start with built-in subagent definitions (currently `plan` only; GP/explore banned)
+ /// 2. Discover user-defined agents from project, user, and bundled agent dirs
+ /// 3. Merge: project-level user agents shadow built-ins with the same name;
+ ///    user-level and bundled agents with built-in names are skipped (maintains
 @@ -309,10 +309,10 @@ fn by_name_in_cwd_with_home(
  /// These are the pre-defined agent profiles that can be launched via the
  /// Task tool. User/project-level agent files can shadow these by name.
@@ -58,11 +260,500 @@ index 4f66263..ae2aa67 100644
  pub fn builtin_subagents() -> Vec<AgentDefinition> {
      BuiltinAgentName::subagent_variants()
          .iter()
+@@ -1088,33 +1088,24 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn test_merge_returns_3_builtins_when_no_user_agents() {
++    fn test_merge_returns_plan_builtin_when_no_user_agents() {
++        // Only `plan` is advertised as a built-in subagent; GP/explore are banned.
+         let entries = merge_subagents(vec![], &HashMap::new());
+-        assert_eq!(entries.len(), 3);
+-        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+-        assert!(names.contains(&"general-purpose"));
+-        assert!(names.contains(&"explore"));
+-        assert!(names.contains(&"plan"));
+-        // All should be Builtin source
+-        for entry in &entries {
+-            assert!(
+-                matches!(&entry.source, SubagentSource::Builtin(_)),
+-                "expected Builtin source for '{}'",
+-                entry.name
+-            );
+-            assert!(entry.shadows_builtin.is_none());
+-        }
++        assert_eq!(entries.len(), 1);
++        assert_eq!(entries[0].name, "plan");
++        assert!(matches!(
++            &entries[0].source,
++            SubagentSource::Builtin(BuiltinAgentName::Plan)
++        ));
++        assert!(entries[0].shadows_builtin.is_none());
+     }
+ 
+     #[test]
+     fn test_merge_filters_toggled_off_builtins() {
+         let toggle = HashMap::from([("plan".to_string(), false)]);
+         let entries = merge_subagents(vec![], &toggle);
+-        assert_eq!(entries.len(), 2);
+-        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+-        assert!(names.contains(&"general-purpose"));
+-        assert!(names.contains(&"explore"));
+-        assert!(!names.contains(&"plan"));
++        assert!(entries.is_empty());
++        assert!(!entries.iter().any(|e| e.name == "plan"));
+     }
+ 
+     #[test]
+@@ -1125,7 +1116,7 @@ mod tests {
+             AgentScope::Project,
+         )];
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        assert_eq!(entries.len(), 4); // 3 built-ins + 1 user
++        assert_eq!(entries.len(), 2); // plan + 1 user
+         let cr = entries.iter().find(|e| e.name == "code-reviewer").unwrap();
+         assert_eq!(cr.description, "Reviews code");
+         assert_eq!(
+@@ -1146,23 +1137,24 @@ mod tests {
+         )];
+         let toggle = HashMap::from([("code-reviewer".to_string(), false)]);
+         let entries = merge_subagents(discovered, &toggle);
+-        assert_eq!(entries.len(), 3); // only built-ins
++        assert_eq!(entries.len(), 1); // only plan
+         assert!(entries.iter().all(|e| e.name != "code-reviewer"));
++        assert_eq!(entries[0].name, "plan");
+     }
+ 
+     #[test]
+     fn test_merge_project_agent_shadows_builtin() {
+         let discovered = vec![synthetic_agent(
+-            "explore",
+-            "Custom explore agent",
++            "plan",
++            "Custom plan agent",
+             AgentScope::Project,
+         )];
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        assert_eq!(entries.len(), 3); // still 3 — replaced, not appended
+-        let explore = entries.iter().find(|e| e.name == "explore").unwrap();
+-        assert_eq!(explore.description, "Custom explore agent");
++        assert_eq!(entries.len(), 1); // replaced, not appended
++        let plan = entries.iter().find(|e| e.name == "plan").unwrap();
++        assert_eq!(plan.description, "Custom plan agent");
+         assert_eq!(
+-            explore.source,
++            plan.source,
+             SubagentSource::UserDefined {
+                 scope: AgentScope::Project
+             }
+@@ -1172,53 +1164,52 @@ mod tests {
+     #[test]
+     fn test_merge_shadowed_entry_has_shadows_builtin() {
+         let discovered = vec![synthetic_agent(
+-            "explore",
+-            "Custom explore",
++            "plan",
++            "Custom plan",
+             AgentScope::Project,
+         )];
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        let explore = entries.iter().find(|e| e.name == "explore").unwrap();
++        let plan = entries.iter().find(|e| e.name == "plan").unwrap();
+         assert_eq!(
+-            explore.shadows_builtin,
+-            Some(BuiltinAgentName::Explore),
+-            "shadowed explore should record shadows_builtin"
++            plan.shadows_builtin,
++            Some(BuiltinAgentName::Plan),
++            "shadowed plan should record shadows_builtin"
+         );
+     }
+ 
+     #[test]
+     fn test_merge_user_level_builtin_name_is_skipped() {
+-        // A user-level (~/.grok/agents/) agent named "explore" should NOT shadow
++        // A user-level (~/.grok/agents/) agent named "plan" should NOT shadow
+         // the built-in — only project-level can do that.
+         let discovered = vec![synthetic_agent(
+-            "explore",
+-            "User-level explore",
++            "plan",
++            "User-level plan",
+             AgentScope::User,
+         )];
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        assert_eq!(entries.len(), 3); // still 3 built-ins
+-        let explore = entries.iter().find(|e| e.name == "explore").unwrap();
+-        // Should still be the built-in, not the user-level agent
++        assert_eq!(entries.len(), 1);
++        let plan = entries.iter().find(|e| e.name == "plan").unwrap();
+         assert!(
+             matches!(
+-                &explore.source,
+-                SubagentSource::Builtin(BuiltinAgentName::Explore)
++                &plan.source,
++                SubagentSource::Builtin(BuiltinAgentName::Plan)
+             ),
+-            "user-level explore should not shadow built-in"
++            "user-level plan should not shadow built-in"
+         );
+     }
+ 
+     #[test]
+     fn test_merge_bundled_builtin_name_is_skipped() {
+         let discovered = vec![synthetic_agent(
+-            "explore",
+-            "Bundled explore",
++            "plan",
++            "Bundled plan",
+             AgentScope::Bundled,
+         )];
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        let explore = entries.iter().find(|e| e.name == "explore").unwrap();
++        let plan = entries.iter().find(|e| e.name == "plan").unwrap();
+         assert!(matches!(
+-            &explore.source,
+-            SubagentSource::Builtin(BuiltinAgentName::Explore)
++            &plan.source,
++            SubagentSource::Builtin(BuiltinAgentName::Plan)
+         ));
+     }
+ 
+@@ -1230,14 +1221,11 @@ mod tests {
+             AgentScope::User,
+         )];
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        assert_eq!(entries.len(), 4); // 3 built-ins + 1 user
+-        // Verify ordering: built-ins first, then user
++        assert_eq!(entries.len(), 2); // plan + 1 user
+         assert!(matches!(&entries[0].source, SubagentSource::Builtin(_)));
+-        assert!(matches!(&entries[1].source, SubagentSource::Builtin(_)));
+-        assert!(matches!(&entries[2].source, SubagentSource::Builtin(_)));
+-        assert_eq!(entries[3].name, "migration-helper");
++        assert_eq!(entries[1].name, "migration-helper");
+         assert_eq!(
+-            entries[3].source,
++            entries[1].source,
+             SubagentSource::UserDefined {
+                 scope: AgentScope::User
+             }
+@@ -1252,9 +1240,9 @@ mod tests {
+             AgentScope::Bundled,
+         )];
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        assert_eq!(entries[3].name, "bundled-helper");
++        assert_eq!(entries[1].name, "bundled-helper");
+         assert_eq!(
+-            entries[3].source,
++            entries[1].source,
+             SubagentSource::UserDefined {
+                 scope: AgentScope::Bundled
+             }
+@@ -1263,11 +1251,7 @@ mod tests {
+ 
+     #[test]
+     fn test_merge_all_toggled_off_returns_empty() {
+-        let toggle = HashMap::from([
+-            ("general-purpose".to_string(), false),
+-            ("explore".to_string(), false),
+-            ("plan".to_string(), false),
+-        ]);
++        let toggle = HashMap::from([("plan".to_string(), false)]);
+         let entries = merge_subagents(vec![], &toggle);
+         assert!(entries.is_empty(), "all toggled off should return empty");
+     }
+@@ -1275,15 +1259,15 @@ mod tests {
+     #[test]
+     fn test_merge_invalid_user_agent_preserves_builtin() {
+         // Simulate: discover() skips invalid files (returns empty for that file).
+-        // So if a user's explore.md is invalid, discover() won't include it,
+-        // and the built-in explore remains.
++        // So if a user's plan.md is invalid, discover() won't include it,
++        // and the built-in plan remains.
+         let discovered = vec![]; // no valid user agents discovered
+         let entries = merge_subagents(discovered, &HashMap::new());
+-        assert_eq!(entries.len(), 3);
+-        let explore = entries.iter().find(|e| e.name == "explore").unwrap();
++        assert_eq!(entries.len(), 1);
++        let plan = entries.iter().find(|e| e.name == "plan").unwrap();
+         assert!(matches!(
+-            &explore.source,
+-            SubagentSource::Builtin(BuiltinAgentName::Explore)
++            &plan.source,
++            SubagentSource::Builtin(BuiltinAgentName::Plan)
+         ));
+     }
+ 
+@@ -1335,12 +1319,9 @@ mod tests {
+         );
+ 
+         let entries = all_subagents_with_home(tmp.path(), &HashMap::new(), None, None);
+-        assert_eq!(entries.len(), 4);
++        assert_eq!(entries.len(), 2);
+         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+-        assert_eq!(
+-            names,
+-            vec!["general-purpose", "explore", "plan", "test-agent"]
+-        );
++        assert_eq!(names, vec!["plan", "test-agent"]);
+     }
+ 
+     #[test]
+@@ -1548,6 +1529,6 @@ mod tests {
+         let toggle = HashMap::from([("test-agent".to_string(), false)]);
+         let entries = all_subagents_with_home(tmp.path(), &toggle, None, None);
+         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+-        assert_eq!(names, vec!["general-purpose", "explore", "plan"]);
++        assert_eq!(names, vec!["plan"]);
+     }
+ }
+diff --git c/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs w/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs
+index 089b30b..78bc9ba 100644
+--- c/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs
++++ w/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs
+@@ -166,6 +166,13 @@ impl SessionRegistry {
+             e.resident.get_or_insert_default().codebase_index = Some(index);
+         });
+     }
++    /// Mark the session as requiring a gateway (test + lifecycle bookkeeping).
++    #[cfg(test)]
++    pub(super) fn mark_require_gateway(&self, id: &acp::SessionId) {
++        self.edit(id, |e| {
++            e.resident.get_or_insert_default().require_gateway = true;
++        });
++    }
+     /// Destructured so a new field has to be counted, or go unmeasured.
+     pub(super) fn counts(&self) -> SessionCounts {
+         let mut counts = SessionCounts::default();
+diff --git c/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs w/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
+index 8008cad..9489504 100644
+--- c/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
++++ w/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
+@@ -87,10 +87,17 @@ pub(crate) async fn run_shell_child(
+     };
+     match gate_subagent_type(&request.subagent_type, &ctx) {
+         SubagentValidateTypeOutcome::Disabled => {
+-            let msg = format!(
+-                "Subagent '{}' is disabled via [subagents.toggle] in config.toml",
+-                request.subagent_type
+-            );
++            let msg = if xai_tool_types::is_banned_subagent_type(&request.subagent_type) {
++                format!(
++                    "Subagent '{}' is hard-banned and cannot be spawned (use \"plan\" or a user-defined specialist)",
++                    request.subagent_type
++                )
++            } else {
++                format!(
++                    "Subagent '{}' is disabled via [subagents.toggle] in config.toml",
++                    request.subagent_type
++                )
++            };
+             return child_run_output(failure_result(&request, &msg), completion_data, None);
+         }
+         SubagentValidateTypeOutcome::NotAllowed { allowed } => {
+diff --git c/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs w/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
+index ae384a3..c4976a8 100644
+--- c/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
++++ w/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
+@@ -1403,23 +1403,38 @@ fn make_validation_ctx(toggle: HashMap<String, bool>) -> SubagentValidationConte
+ #[test]
+ fn validate_subagent_type_returns_ok_for_known_enabled_agent() {
+     let ctx = make_validation_ctx(HashMap::new());
+-    let outcome = validate_subagent_type("explore", &ctx);
++    let outcome = validate_subagent_type("plan", &ctx);
+     assert!(
+             matches!(outcome, SubagentValidateTypeOutcome::Ok),
+             "expected Ok, got {outcome:?}",
+         );
+ }
+ #[test]
++fn validate_subagent_type_returns_disabled_for_banned_types() {
++    let ctx = make_validation_ctx(HashMap::new());
++    for banned in ["explore", "Explore", "general-purpose", "GENERAL-PURPOSE"] {
++        let outcome = validate_subagent_type(banned, &ctx);
++        assert!(
++            matches!(outcome, SubagentValidateTypeOutcome::Disabled),
++            "expected Disabled for banned {banned:?}, got {outcome:?}",
++        );
++    }
++}
++#[test]
+ fn validate_subagent_type_returns_unknown_for_invented_type() {
+     let ctx = make_validation_ctx(HashMap::new());
+     let outcome = validate_subagent_type("totally-invented-agent-name", &ctx);
+     match outcome {
+         SubagentValidateTypeOutcome::Unknown { available } => {
+-            for expected in ["general-purpose", "explore", "plan"] {
++            assert!(
++                available.iter().any(|n| n == "plan"),
++                "available list must include built-in plan: {available:?}",
++            );
++            for banned in ["general-purpose", "explore"] {
+                 assert!(
+-                        available.iter().any(|n| n == expected),
+-                        "available list must include built-in {expected:?}: {available:?}",
+-                    );
++                    !available.iter().any(|n| n == banned),
++                    "available must not advertise banned {banned:?}: {available:?}",
++                );
+             }
+             let mut sorted = available.clone();
+             sorted.sort();
+@@ -1430,9 +1445,9 @@ fn validate_subagent_type_returns_unknown_for_invented_type() {
+ }
+ #[test]
+ fn validate_subagent_type_returns_disabled_when_toggled_off() {
+-    let toggle = HashMap::from([("explore".to_string(), false)]);
++    let toggle = HashMap::from([("plan".to_string(), false)]);
+     let ctx = make_validation_ctx(toggle);
+-    let outcome = validate_subagent_type("explore", &ctx);
++    let outcome = validate_subagent_type("plan", &ctx);
+     assert!(
+             matches!(outcome, SubagentValidateTypeOutcome::Disabled),
+             "expected Disabled, got {outcome:?}",
+@@ -1441,11 +1456,13 @@ fn validate_subagent_type_returns_disabled_when_toggled_off() {
+ #[test]
+ fn validate_subagent_type_returns_not_allowed_when_outside_allow_list() {
+     let mut ctx = make_validation_ctx(HashMap::new());
+-    ctx.allowed_subagent_types = Some(vec!["plan".to_string()]);
+-    let outcome = validate_subagent_type("explore", &ctx);
++    ctx.allowed_subagent_types = Some(vec!["user-defined".to_string()]);
++    ctx.cli_agent_names = vec!["plan".to_string()];
++    // plan resolves as builtin; outside allow-list → NotAllowed (not banned).
++    let outcome = validate_subagent_type("plan", &ctx);
+     match outcome {
+         SubagentValidateTypeOutcome::NotAllowed { allowed } => {
+-            assert_eq!(allowed, vec!["plan".to_string()]);
++            assert_eq!(allowed, vec!["user-defined".to_string()]);
+         }
+         other => panic!("expected NotAllowed, got {other:?}"),
+     }
+@@ -1453,13 +1470,16 @@ fn validate_subagent_type_returns_not_allowed_when_outside_allow_list() {
+ #[test]
+ fn validate_subagent_type_allow_list_is_case_insensitive() {
+     for (requested, allowed) in [
+-        ("explore", vec!["EXPLORE".to_string()]),
+-        ("EXPLORE", vec!["explore".to_string()]),
+-        ("Explore", vec!["eXpLoRe".to_string()]),
+-        ("explore", vec!["plan".to_string(), "EXPLORE".to_string()]),
++        ("plan", vec!["PLAN".to_string()]),
++        ("PLAN", vec!["plan".to_string()]),
++        ("Plan", vec!["pLaN".to_string()]),
++        ("plan", vec!["user-defined".to_string(), "PLAN".to_string()]),
+     ] {
+         let mut ctx = make_validation_ctx(HashMap::new());
+-        ctx.cli_agent_names = vec![requested.to_string()];
++        // Ensure non-builtin casing still resolves when listed as CLI agent.
++        if requested != "plan" {
++            ctx.cli_agent_names = vec![requested.to_string()];
++        }
+         ctx.allowed_subagent_types = Some(allowed.clone());
+         assert!(
+                 matches!(
+@@ -1487,28 +1507,50 @@ fn validate_subagent_type_unknown_includes_cli_agents_in_available() {
+ #[test]
+ fn validate_subagent_type_unknown_dedupes_cli_against_builtins() {
+     let mut ctx = make_validation_ctx(HashMap::new());
+-    ctx.cli_agent_names = vec!["explore".to_string()];
++    ctx.cli_agent_names = vec!["plan".to_string()];
+     match validate_subagent_type("invented", &ctx) {
+         SubagentValidateTypeOutcome::Unknown { available } => {
+-            let count = available.iter().filter(|n| n.as_str() == "explore").count();
+-            assert_eq!(count, 1, "explore must appear once: {available:?}");
++            let count = available.iter().filter(|n| n.as_str() == "plan").count();
++            assert_eq!(count, 1, "plan must appear once: {available:?}");
++        }
++        other => panic!("expected Unknown, got {other:?}"),
++    }
++}
++#[test]
++fn validate_subagent_type_unknown_omits_banned_cli_from_available_list() {
++    let mut ctx = make_validation_ctx(HashMap::new());
++    // User/CLI re-admission of banned names must not surface in ads.
++    ctx.cli_agent_names = vec!["explore".to_string(), "general-purpose".to_string()];
++    match validate_subagent_type("invented", &ctx) {
++        SubagentValidateTypeOutcome::Unknown { available } => {
++            assert!(
++                !available
++                    .iter()
++                    .any(|n| xai_tool_types::is_banned_subagent_type(n)),
++                "banned types must not appear in available: {available:?}",
++            );
++            assert!(
++                available.iter().any(|n| n == "plan"),
++                "live built-ins must still appear: {available:?}",
++            );
+         }
+         other => panic!("expected Unknown, got {other:?}"),
+     }
+ }
+ #[test]
+ fn validate_subagent_type_unknown_omits_disabled_types_from_available_list() {
+-    let toggle = HashMap::from([("explore".to_string(), false)]);
+-    let ctx = make_validation_ctx(toggle);
++    let toggle = HashMap::from([("plan".to_string(), false)]);
++    let mut ctx = make_validation_ctx(toggle);
++    ctx.cli_agent_names = vec!["user-defined".to_string()];
+     match validate_subagent_type("explor", &ctx) {
+         SubagentValidateTypeOutcome::Unknown { available } => {
+             assert!(
+-                    !available.iter().any(|n| n == "explore"),
++                    !available.iter().any(|n| n == "plan"),
+                     "disabled type must not appear in available: {available:?}",
+                 );
+             assert!(
+-                    available.iter().any(|n| n == "general-purpose"),
+-                    "non-disabled built-ins must still appear: {available:?}",
++                    available.iter().any(|n| n == "user-defined"),
++                    "non-disabled agents must still appear: {available:?}",
+                 );
+         }
+         other => panic!("expected Unknown, got {other:?}"),
+diff --git c/crates/codegen/xai-grok-shell/src/session/goal_planner.rs w/crates/codegen/xai-grok-shell/src/session/goal_planner.rs
+index 43f368b..75117fd 100644
+--- c/crates/codegen/xai-grok-shell/src/session/goal_planner.rs
++++ w/crates/codegen/xai-grok-shell/src/session/goal_planner.rs
+@@ -28,6 +28,9 @@ use xai_grok_tools::implementations::grok_build::task::types::{
+ /// toolset matches the spawned one.
+ ///
+ /// [`SubagentRuntimeOverrides::harness_agent_type`]: xai_grok_tools::implementations::grok_build::task::types::SubagentRuntimeOverrides::harness_agent_type
++///
++/// Note: hosts that hard-ban `general-purpose` at spawn must set goal
++/// `agent_type` overrides (or accept /goal role spawn failure).
+ pub(crate) const GOAL_ROLE_SUBAGENT_TYPE: &str = "general-purpose";
+ pub(crate) const GOAL_ROLE_AWAIT_BUDGET_EXCEEDED: &str =
+     "goal role subagent exceeded foreground wait budget";
 diff --git c/crates/codegen/xai-grok-subagent-resolution/src/definition.rs w/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
-index ad98001..a5d1f16 100644
+index ad98001..b9bb87f 100644
 --- c/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
 +++ w/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
-@@ -108,6 +108,13 @@ pub fn gate_agent_definition(
+@@ -80,6 +80,9 @@ pub fn discover_agent_definition(
+     })
+ }
+ /// Sorted model-facing names available under the current discovery context.
++///
++/// Hard-banned types (`general-purpose`, `explore`) are omitted even when a
++/// user/project agent file or CLI agent re-admits the same name.
+ pub fn available_agent_names(context: &DefinitionResolutionContext<'_>) -> Vec<String> {
+     let mut available: Vec<String> = xai_grok_agent::discovery::all_subagents_with_plugins(
+         context.cwd,
+@@ -88,6 +91,7 @@ pub fn available_agent_names(context: &DefinitionResolutionContext<'_>) -> Vec<S
+     )
+     .into_iter()
+     .map(|entry| entry.name)
++    .filter(|name| !xai_tool_types::is_banned_subagent_type(name))
+     .collect();
+     for definition in context.cli_agents {
+         if context
+@@ -95,6 +99,7 @@ pub fn available_agent_names(context: &DefinitionResolutionContext<'_>) -> Vec<S
+             .get(&definition.name)
+             .copied()
+             .unwrap_or(true)
++            && !xai_tool_types::is_banned_subagent_type(&definition.name)
+             && !available.contains(&definition.name)
+         {
+             available.push(definition.name.clone());
+@@ -108,6 +113,13 @@ pub fn gate_agent_definition(
      subagent_type: &str,
      context: &DefinitionResolutionContext<'_>,
  ) -> Result<(), ResolutionError> {
@@ -76,6 +767,242 @@ index ad98001..a5d1f16 100644
      if !context.toggles.get(subagent_type).copied().unwrap_or(true) {
          return Err(ResolutionError::Disabled {
              subagent_type: subagent_type.to_string(),
+@@ -130,6 +142,13 @@ pub fn validate_agent_name(
+     subagent_type: &str,
+     context: &DefinitionValidationContext<'_>,
+ ) -> Result<(), ResolutionError> {
++    // Hard-ban before discovery so case variants (e.g. "Explore") never
++    // fall through as Unknown when lookup is case-sensitive.
++    if xai_tool_types::is_banned_subagent_type(subagent_type) {
++        return Err(ResolutionError::Disabled {
++            subagent_type: subagent_type.to_string(),
++        });
++    }
+     let resolves = context
+         .cli_agent_names
+         .iter()
+@@ -148,9 +167,13 @@ pub fn validate_agent_name(
+         )
+         .into_iter()
+         .map(|entry| entry.name)
++        .filter(|name| !xai_tool_types::is_banned_subagent_type(name))
+         .collect();
+         for name in context.cli_agent_names {
+-            if context.toggles.get(name).copied().unwrap_or(true) && !available.contains(name) {
++            if context.toggles.get(name).copied().unwrap_or(true)
++                && !xai_tool_types::is_banned_subagent_type(name)
++                && !available.contains(name)
++            {
+                 available.push(name.clone());
+             }
+         }
+@@ -174,6 +197,12 @@ pub fn resolve_agent_definition(
+     subagent_type: &str,
+     context: &DefinitionResolutionContext<'_>,
+ ) -> Result<AgentDefinition, ResolutionError> {
++    // Hard-ban first so case variants never report as Unknown.
++    if xai_tool_types::is_banned_subagent_type(subagent_type) {
++        return Err(ResolutionError::Disabled {
++            subagent_type: subagent_type.to_string(),
++        });
++    }
+     let definition = discover_agent_definition(subagent_type, context).ok_or_else(|| {
+         ResolutionError::Unknown {
+             subagent_type: subagent_type.to_string(),
+@@ -318,11 +347,11 @@ mod tests {
+         }
+     }
+     #[test]
+-    fn builtin_explore_uses_production_read_only_toolset() {
++    fn builtin_plan_uses_production_read_only_toolset() {
+         let cwd = tempfile::tempdir().unwrap();
+         let toggles = HashMap::new();
+         let mut definition =
+-            resolve_agent_definition("explore", &context(cwd.path(), &toggles)).unwrap();
++            resolve_agent_definition("plan", &context(cwd.path(), &toggles)).unwrap();
+         apply_child_tool_policy(&mut definition, None, false);
+         let kinds: Vec<Option<ToolKind>> = definition
+             .tool_config
+@@ -338,29 +367,83 @@ mod tests {
+     #[test]
+     fn gates_disabled_and_not_allowed_definitions() {
+         let cwd = tempfile::tempdir().unwrap();
+-        let toggles = HashMap::from([("explore".to_string(), false)]);
++        // Toggle-off for the live builtin (`plan`).
++        let toggles = HashMap::from([("plan".to_string(), false)]);
+         let disabled = context(cwd.path(), &toggles);
+         assert!(matches!(
+-            resolve_agent_definition("explore", &disabled),
++            resolve_agent_definition("plan", &disabled),
+             Err(ResolutionError::Disabled { .. })
+         ));
+-        let allowed = ["plan".to_string()];
++        // Parent allow-list rejects discoverable names outside the list.
++        let allowed = ["other".to_string()];
+         let toggles = HashMap::new();
+         let restricted = DefinitionResolutionContext {
+             allowed_types: Some(&allowed),
+             ..context(cwd.path(), &toggles)
+         };
+         assert!(matches!(
+-            resolve_agent_definition("explore", &restricted),
++            resolve_agent_definition("plan", &restricted),
+             Err(ResolutionError::NotAllowed { .. })
+         ));
+     }
+     #[test]
++    fn gate_agent_definition_rejects_banned_subagent_types() {
++        let cwd = tempfile::tempdir().unwrap();
++        let toggles = HashMap::new();
++        let ctx = context(cwd.path(), &toggles);
++        for banned in [
++            "general-purpose",
++            "explore",
++            "Explore",
++            "GENERAL-PURPOSE",
++            "eXpLoRe",
++        ] {
++            assert!(
++                matches!(
++                    gate_agent_definition(banned, &ctx),
++                    Err(ResolutionError::Disabled {
++                        subagent_type: ref t
++                    }) if t == banned
++                ),
++                "expected Disabled for banned type {banned}"
++            );
++            // resolve path also hard-bans (even though discover still finds the legacy def).
++            assert!(
++                matches!(
++                    resolve_agent_definition(banned, &ctx),
++                    Err(ResolutionError::Disabled {
++                        subagent_type: ref t
++                    }) if t == banned
++                ),
++                "expected resolve Disabled for banned type {banned}"
++            );
++        }
++        // Toggle cannot re-enable a banned name.
++        let toggles_on = HashMap::from([
++            ("general-purpose".to_string(), true),
++            ("explore".to_string(), true),
++        ]);
++        let ctx_on = context(cwd.path(), &toggles_on);
++        assert!(matches!(
++            gate_agent_definition("explore", &ctx_on),
++            Err(ResolutionError::Disabled { .. })
++        ));
++        assert!(matches!(
++            gate_agent_definition("EXPLORE", &ctx_on),
++            Err(ResolutionError::Disabled { .. })
++        ));
++        // Live builtin still passes the gate.
++        assert!(gate_agent_definition("plan", &ctx).is_ok());
++        // Banned names never appear in discovery ads (even if re-admitted via CLI).
++        let names = available_agent_names(&ctx);
++        assert!(!names.iter().any(|n| xai_tool_types::is_banned_subagent_type(n)));
++    }
++    #[test]
+     fn definition_defaults_fill_runtime_without_overwriting_explicit_values() {
+         let cwd = tempfile::tempdir().unwrap();
+         let toggles = HashMap::new();
+         let mut definition =
+-            resolve_agent_definition("explore", &context(cwd.path(), &toggles)).unwrap();
++            resolve_agent_definition("plan", &context(cwd.path(), &toggles)).unwrap();
+         definition.isolation = Some(IsolationMode::Worktree);
+         let mut runtime = EffectiveRuntimeConfig::default();
+         apply_definition_runtime_defaults(&mut runtime, &definition);
+@@ -371,7 +454,7 @@ mod tests {
+         let cwd = tempfile::tempdir().unwrap();
+         let toggles = HashMap::new();
+         let definition =
+-            resolve_agent_definition("explore", &context(cwd.path(), &toggles)).unwrap();
++            resolve_agent_definition("plan", &context(cwd.path(), &toggles)).unwrap();
+         let renderer = TemplateRenderer::new(
+             HashMap::from([
+                 (ToolKind::Read, "read_x".to_string()),
+@@ -388,7 +471,7 @@ mod tests {
+         )
+         .unwrap();
+         assert!(prompt.contains("<project_instructions_spec>"));
+-        assert!(prompt.contains("read-only codebase exploration agent"));
++        assert!(prompt.contains("read-only software architect"));
+         assert!(prompt.contains(&format!("Workspace Path: {}", cwd.path().display())));
+         assert!(!prompt.contains("${{"));
+     }
+@@ -398,7 +481,7 @@ mod tests {
+         std::fs::write(cwd.path().join("AGENTS.md"), "Use the project contract.").unwrap();
+         let toggles = HashMap::new();
+         let definition =
+-            resolve_agent_definition("explore", &context(cwd.path(), &toggles)).unwrap();
++            resolve_agent_definition("plan", &context(cwd.path(), &toggles)).unwrap();
+         let message =
+             render_subagent_initial_user_message(&definition, cwd.path(), CompatConfig::default())
+                 .await
+diff --git c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs w/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
+index a151e21..ad3b7c8 100644
+--- c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
++++ w/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
+@@ -318,6 +318,12 @@ impl xai_tool_runtime::Tool for TaskTool {
+                 )));
+             }
+             SubagentValidateTypeOutcome::Disabled => {
++                if xai_tool_types::is_banned_subagent_type(&input.subagent_type) {
++                    return Err(xai_tool_runtime::ToolError::invalid_arguments(format!(
++                        "Subagent '{}' is hard-banned and cannot be spawned (use \"plan\" or a user-defined specialist)",
++                        input.subagent_type
++                    )));
++                }
+                 return Err(xai_tool_runtime::ToolError::invalid_arguments(format!(
+                     "Subagent '{}' is disabled via [subagents.toggle] in config.toml",
+                     input.subagent_type
+@@ -1027,10 +1033,12 @@ mod tests {
+         let (backend, mut rx) = make_backend_with_validation(SubagentValidateTypeOutcome::Disabled);
+         let resources = resources_for_task(backend);
+ 
++        // Non-banned name so the toggle-disable path is exercised (banned
++        // names get a distinct hard-ban message).
+         let result = xai_tool_runtime::Tool::run(
+             &TaskTool,
+             test_ctx(resources.into_shared()),
+-            task_input("explore", true),
++            task_input("plan", true),
+         )
+         .await;
+         let msg = result.expect_err("must reject").to_string();
+@@ -1038,6 +1046,23 @@ mod tests {
+         assert!(rx.try_recv().is_err());
+     }
+ 
++    #[tokio::test]
++    async fn banned_subagent_type_returns_hard_ban_error_before_spawn() {
++        let (backend, mut rx) = make_backend_with_validation(SubagentValidateTypeOutcome::Disabled);
++        let resources = resources_for_task(backend);
++
++        let result = xai_tool_runtime::Tool::run(
++            &TaskTool,
++            test_ctx(resources.into_shared()),
++            task_input("Explore", true),
++        )
++        .await;
++        let msg = result.expect_err("must reject").to_string();
++        assert!(msg.contains("hard-banned"), "got: {msg}");
++        assert!(!msg.contains("[subagents.toggle]"));
++        assert!(rx.try_recv().is_err());
++    }
++
+     #[tokio::test]
+     async fn not_allowed_subagent_type_returns_error_before_spawn() {
+         let allowed = vec!["explore".to_string(), "plan".to_string()];
+@@ -1085,7 +1110,7 @@ mod tests {
+         let result = xai_tool_runtime::Tool::run(
+             &TaskTool,
+             test_ctx(resources.into_shared()),
+-            task_input("explore", false),
++            task_input("plan", false),
+         )
+         .await;
+         assert!(
 diff --git c/crates/common/xai-tool-types/src/lib.rs w/crates/common/xai-tool-types/src/lib.rs
 index fd19d74..8680d81 100644
 --- c/crates/common/xai-tool-types/src/lib.rs
@@ -90,7 +1017,7 @@ index fd19d74..8680d81 100644
      is_not_sentinel, max_wait_block_ms, resolve_task_ids, sanitize_optional_arg, task_output_waits,
      task_output_waits_from_json,
 diff --git c/crates/common/xai-tool-types/src/task.rs w/crates/common/xai-tool-types/src/task.rs
-index 4454b7c..f79bf20 100644
+index 4454b7c..f6fb58f 100644
 --- c/crates/common/xai-tool-types/src/task.rs
 +++ w/crates/common/xai-tool-types/src/task.rs
 @@ -20,10 +20,11 @@ pub struct TaskToolInput {
@@ -108,7 +1035,7 @@ index 4454b7c..f79bf20 100644
      )]
      #[serde(default = "default_subagent_type")]
      pub subagent_type: String,
-@@ -109,9 +110,24 @@ pub struct TaskToolInput {
+@@ -109,9 +110,26 @@ pub struct TaskToolInput {
      pub task_id: Option<String>,
  }
  
@@ -118,10 +1045,12 @@ index 4454b7c..f79bf20 100644
 +/// user-defined specialists (or the remaining built-in `plan`).
 +pub const BANNED_SUBAGENT_TYPES: &[&str] = &["general-purpose", "explore"];
 +
-+/// True when `name` is a hard-banned subagent type (case-sensitive).
++/// True when `name` is a hard-banned subagent type (ASCII case-insensitive).
 +#[inline]
 +pub fn is_banned_subagent_type(name: &str) -> bool {
-+    BANNED_SUBAGENT_TYPES.iter().any(|b| *b == name)
++    BANNED_SUBAGENT_TYPES
++        .iter()
++        .any(|b| name.eq_ignore_ascii_case(b))
 +}
 +
  /// Default `subagent_type` for [`TaskToolInput`] when the caller omits it.
@@ -134,7 +1063,7 @@ index 4454b7c..f79bf20 100644
  }
  
  /// True when `s` is not a model-emitted placeholder (`""`, `"null"`, `"none"`,
-@@ -860,13 +876,25 @@ pub const PLAN_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
+@@ -860,13 +878,25 @@ pub const PLAN_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
  };
  
  /// The built-in subagent types advertised to the model, in display order.
@@ -164,7 +1093,7 @@ index 4454b7c..f79bf20 100644
  }
  
  /// Tool/parameter names (and optional features) that vary between products when
-@@ -1170,7 +1198,7 @@ mod tests {
+@@ -1170,7 +1200,7 @@ mod tests {
      fn task_tool_input_defaults_background_true() {
          let input: TaskToolInput =
              serde_json::from_str(r#"{"description": "test", "prompt": "do it"}"#).unwrap();
@@ -173,7 +1102,7 @@ index 4454b7c..f79bf20 100644
          assert!(
              input.run_in_background,
              "run_in_background should default to true"
-@@ -1332,7 +1360,7 @@ mod tests {
+@@ -1332,7 +1362,7 @@ mod tests {
      fn builtin_subagent_catalog_names_and_descriptor_conversion() {
          assert_eq!(
              BUILTIN_SUBAGENTS.map(|b| b.name),
@@ -182,10 +1111,11 @@ index 4454b7c..f79bf20 100644
          );
  
          let desc = EXPLORE_SUBAGENT.to_descriptor(&plain_tool_naming());
-@@ -1351,6 +1379,15 @@ mod tests {
+@@ -1350,6 +1380,34 @@ mod tests {
+         assert!(!GENERAL_PURPOSE_SUBAGENT.description.contains("  "));
      }
  
-     #[test]
++    #[test]
 +    fn banned_subagent_types_are_recognized() {
 +        assert!(is_banned_subagent_type("general-purpose"));
 +        assert!(is_banned_subagent_type("explore"));
@@ -195,6 +1125,24 @@ index 4454b7c..f79bf20 100644
 +    }
 +
 +    #[test]
++    fn banned_subagent_types_are_case_insensitive() {
++        for name in [
++            "Explore",
++            "EXPLORE",
++            "eXpLoRe",
++            "GENERAL-PURPOSE",
++            "General-Purpose",
++            "general-Purpose",
++        ] {
++            assert!(
++                is_banned_subagent_type(name),
++                "expected ban for {name:?}"
++            );
++        }
++        assert!(!is_banned_subagent_type("Plan"));
++        assert!(!is_banned_subagent_type("PLAN"));
++    }
++
+     #[test]
      fn builtin_subagent_by_name_finds_builtins_only() {
          assert_eq!(
-             builtin_subagent_by_name("explore").map(|b| b.name),
