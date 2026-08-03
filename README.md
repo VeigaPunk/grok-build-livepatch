@@ -21,9 +21,19 @@ xAI's public tree (`xai-org/grok-build`) is source-transparent and **does not ac
 
 Upstream constants for GP/explore prompts remain for legacy rendering only; they are **not** advertised and **cannot spawn**.
 
+## GitHub Pages (Grok Builder site)
+
+Live site (after Pages is set to **branch `main` / folder `/docs`**):
+
+**https://veigapunk.github.io/grok-build-livepatch/**
+
+Sources: `docs/index.html`, `docs/style.css`, `docs/cli-config.toml`, `docs/.nojekyll`.
+
+One-time on GitHub (Settings → Pages → Deploy from a branch → `main` → `/docs` → Save). SSH push alone cannot flip the Pages switch; after that, every push to `main` updates the site.
+
 ## Recommended CLI config (website / host)
 
-Public template: **[docs/cli-config.toml](docs/cli-config.toml)** — marketplace sources, `xbgst-stack`, models, UI `permission_mode`, and subagent toggles aligned with the hard-ban.
+Public template: **[docs/cli-config.toml](docs/cli-config.toml)** (also on the Pages site) — marketplace sources, `xbgst-stack`, models, UI `permission_mode`, and subagent toggles aligned with the hard-ban.
 
 ```bash
 # merge into your host config (do not commit secrets)

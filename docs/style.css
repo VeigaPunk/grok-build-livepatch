@@ -1,0 +1,119 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0c10;
+  --panel: #12141a;
+  --border: #262a33;
+  --text: #e8eaed;
+  --muted: #9aa3b2;
+  --accent: #7dd3fc;
+  --accent-2: #a78bfa;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: radial-gradient(1200px 600px at 10% -10%, #1a1530 0%, transparent 55%),
+              radial-gradient(900px 500px at 100% 0%, #0c2438 0%, transparent 50%),
+              var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.wrap { max-width: 920px; margin: 0 auto; padding: 1.25rem 1.25rem 4rem; }
+
+.nav {
+  display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem;
+  align-items: center; justify-content: space-between;
+  padding: 0.75rem 0 1.5rem; border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+.brand { font-weight: 700; letter-spacing: 0.02em; color: var(--text); }
+.brand span { color: var(--accent-2); }
+.nav-links { display: flex; flex-wrap: wrap; gap: 0.85rem; font-size: 0.95rem; }
+
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  line-height: 1.15;
+  margin: 0 0 0.75rem;
+}
+.eyebrow {
+  text-transform: uppercase; letter-spacing: 0.12em;
+  font-size: 0.72rem; color: var(--accent); margin: 0 0 0.5rem;
+}
+.lede { color: var(--muted); font-size: 1.05rem; max-width: 42rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.65rem; margin: 1.4rem 0 0.5rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.55rem 0.95rem; border-radius: 0.55rem;
+  border: 1px solid var(--border); background: var(--panel);
+  color: var(--text); font-weight: 600; font-size: 0.92rem;
+}
+.btn:hover { border-color: var(--accent); text-decoration: none; }
+.btn-primary { background: linear-gradient(135deg, #1e3a5f, #2a1f4d); border-color: #3b4f72; }
+
+.grid {
+  display: grid; gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 2rem 0;
+}
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 0.75rem; padding: 1rem 1.1rem;
+}
+.card h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+.card p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+
+section { margin: 2.5rem 0; }
+section h2 {
+  font-size: 1.35rem; margin: 0 0 0.75rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0.4rem;
+}
+
+table {
+  width: 100%; border-collapse: collapse; font-size: 0.92rem;
+  background: var(--panel); border-radius: 0.75rem; overflow: hidden;
+  border: 1px solid var(--border);
+}
+th, td { text-align: left; padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+tr:last-child td { border-bottom: none; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+
+pre {
+  background: #0a0b0f; border: 1px solid var(--border);
+  border-radius: 0.75rem; padding: 1rem 1.1rem;
+  overflow-x: auto; font-family: var(--mono); font-size: 0.82rem;
+  line-height: 1.45; color: #d7dde8;
+}
+pre .c { color: #6b7280; }
+.pill {
+  display: inline-block; font-size: 0.72rem; font-weight: 700;
+  padding: 0.15rem 0.45rem; border-radius: 999px;
+  background: #14301f; color: var(--ok); border: 1px solid #1f5c38;
+  vertical-align: middle; margin-left: 0.35rem;
+}
+.pill-warn { background: #2a2210; color: var(--warn); border-color: #5c4a1f; }
+
+.footer {
+  margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border);
+  color: var(--muted); font-size: 0.88rem;
+}
+
+.copy-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.6rem 0 1rem; }
+button.copy {
+  cursor: pointer; font: inherit; font-size: 0.85rem; font-weight: 600;
+  padding: 0.4rem 0.75rem; border-radius: 0.45rem;
+  border: 1px solid var(--border); background: #1a1d26; color: var(--text);
+}
+button.copy:hover { border-color: var(--accent); }
+#copy-status { color: var(--ok); font-size: 0.85rem; min-height: 1.2em; }

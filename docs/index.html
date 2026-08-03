@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok Builder — livepatch CLI · VeigaPunk</title>
+  <meta name="description" content="Hard-ban general-purpose/explore in Grok Build CLI, recommended host config, and xbgst-stack install.">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:title" content="Grok Builder — livepatch CLI">
+  <meta property="og:description" content="Livepatched Grok Build: ban generic subagents, ship plan-only Task ads, host config for xbgst-stack.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://veigapunk.github.io/grok-build-livepatch/">
+  <link rel="canonical" href="https://veigapunk.github.io/grok-build-livepatch/">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav" aria-label="Primary">
+      <a class="brand" href="./">Grok <span>Builder</span></a>
+      <div class="nav-links">
+        <a href="#install">Install</a>
+        <a href="#config">Config</a>
+        <a href="#ban">Ban</a>
+        <a href="https://github.com/VeigaPunk/grok-build-livepatch">GitHub</a>
+        <a href="https://github.com/VeigaPunk/grok-marketplace">Marketplace</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <p class="eyebrow">VeigaPunk · Grok Build livepatch</p>
+      <h1>Grok Builder CLI</h1>
+      <p class="lede">
+        Public path to keep <strong>Grok Build</strong> free of unfocused
+        <code>general-purpose</code> / <code>explore</code> spawns — hard ban in the binary,
+        re-applied every 6h, with a recommended host config for <strong>xbgst-stack</strong>.
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/VeigaPunk/grok-build-livepatch">Source repo</a>
+        <a class="btn" href="cli-config.toml">Download config.toml</a>
+        <a class="btn" href="https://github.com/VeigaPunk/grok-marketplace">Marketplace</a>
+      </div>
+      <p class="lede" style="font-size:0.9rem;margin-top:0.75rem">
+        Pages URL: <code>https://veigapunk.github.io/grok-build-livepatch/</code>
+        <span class="pill">/docs on main</span>
+      </p>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Hard ban</h3>
+        <p>Spawn of <code>general-purpose</code> and <code>explore</code> fails (case-insensitive), even if toggled or shadowed.</p>
+      </div>
+      <div class="card">
+        <h3>Task ads</h3>
+        <p>Built-in roster is <code>plan</code> only. Defaults no longer open a GP loop.</p>
+      </div>
+      <div class="card">
+        <h3>Full-tool alias</h3>
+        <p>First-party goal / scheduler / workflow use non-banned <code>agent</code> for full capability.</p>
+      </div>
+      <div class="card">
+        <h3>6h watch</h3>
+        <p>systemd user timer re-applies the patch when upstream Grok Build moves.</p>
+      </div>
+    </div>
+
+    <section id="install">
+      <h2>Install</h2>
+      <pre><span class="c"># clone + gates</span>
+git clone git@github.com:VeigaPunk/grok-build-livepatch.git
+cd grok-build-livepatch
+chmod +x scripts/*.sh
+./scripts/gates.sh
+./scripts/check-and-patch.sh          <span class="c"># network + cargo (first run)</span>
+./scripts/install-timer.sh            <span class="c"># 6h user timer, REPLACE_BIN=1</span>
+./scripts/install-timer.sh --link-bin
+./scripts/install-timer.sh --status   <span class="c"># active_cli=livepatch</span>
+
+<span class="c"># marketplace stack (agents / skills / commands)</span>
+grok plugin marketplace add VeigaPunk/grok-marketplace
+grok plugin install xbgst-stack@veigapunk/grok-marketplace --trust
+bash ~/.grok/installed-plugins/xbgst-stack-*/scripts/install-host.sh</pre>
+    </section>
+
+    <section id="config">
+      <h2>Recommended CLI config</h2>
+      <p class="lede" style="margin-bottom:0.75rem">
+        Merge into <code>~/.grok/config.toml</code>. Same file as
+        <a href="cli-config.toml"><code>docs/cli-config.toml</code></a> in the repo.
+      </p>
+      <div class="copy-row">
+        <button type="button" class="copy" id="btn-copy" data-target="cfg">Copy config</button>
+        <a class="btn" href="cli-config.toml" download="config.toml">Download</a>
+        <span id="copy-status" aria-live="polite"></span>
+      </div>
+      <pre id="cfg">[cli]
+installer = "internal"
+
+[marketplace]
+default_skills_installs_purged = true
+official_marketplace_auto_installed = true
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[[marketplace.sources]]
+name = "grok-marketplace"
+git = "https://github.com/VeigaPunk/grok-marketplace.git"
+
+[[marketplace.sources]]
+name = "ds4cc-marketplace"
+git = "https://github.com/VeigaPunk/ds4cc-marketplace.git"
+
+[ui]
+max_thoughts_width = 120
+fork_secondary_model = "grok-4.5"
+yolo = false
+compact_mode = false
+permission_mode = "always-approve"
+
+[plugins]
+enabled = [
+    "exa",
+    "tinyfish",
+    "cloudflare",
+    "xbgst-stack",
+    "heuer-planning",
+]
+
+[models]
+default = "grok-4.5"
+default_reasoning_effort = "low"
+
+[subagents.toggle]
+# Defense in depth: livepatch hard-rejects these at spawn.
+explore = false
+general-purpose = false</pre>
+    </section>
+
+    <section id="ban">
+      <h2>What the patch changes</h2>
+      <table>
+        <thead>
+          <tr><th>Change</th><th>Effect</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>BUILTIN_SUBAGENTS</code> → <code>plan</code></td><td>Model no longer sees GP/explore</td></tr>
+          <tr><td><code>default_subagent_type</code> → <code>plan</code></td><td>Omitted type is not GP</td></tr>
+          <tr><td><code>is_banned_subagent_type</code> + gate</td><td>Case-insensitive hard reject at spawn</td></tr>
+          <tr><td>Alias <code>agent</code></td><td>Full tools for first-party without GP name</td></tr>
+          <tr><td>Task tool ads</td><td>Only plan advertised as built-in</td></tr>
+        </tbody>
+      </table>
+      <p class="lede" style="margin-top:1rem">
+        Upstream tree: <a href="https://github.com/xai-org/grok-build">xai-org/grok-build</a> (no external PRs).
+        This site ships the practical patch + host config.
+      </p>
+    </section>
+
+    <section id="links">
+      <h2>Links</h2>
+      <ul>
+        <li><a href="https://github.com/VeigaPunk/grok-build-livepatch">VeigaPunk/grok-build-livepatch</a> — patch, timer, this Pages site</li>
+        <li><a href="https://github.com/VeigaPunk/grok-marketplace">VeigaPunk/grok-marketplace</a> — xbgst-stack + nested livepatch</li>
+        <li><a href="HOST.md">HOST.md</a> · <a href="PUBLISH.md">PUBLISH.md</a> · <a href="MUSKETEER.md">MUSKETEER.md</a></li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      Grok Builder livepatch · MIT/Apache as in repo licenses ·
+      <a href="https://github.com/VeigaPunk/grok-build-livepatch">GitHub</a>
+    </footer>
+  </div>
+  <script>
+    document.getElementById("btn-copy").addEventListener("click", async () => {
+      const text = document.getElementById("cfg").innerText;
+      const status = document.getElementById("copy-status");
+      try {
+        await navigator.clipboard.writeText(text);
+        status.textContent = "Copied.";
+      } catch {
+        status.textContent = "Select the block and copy manually.";
+      }
+    });
+  </script>
+</body>
+</html>
