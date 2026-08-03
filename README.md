@@ -21,15 +21,13 @@ xAI's public tree (`xai-org/grok-build`) is source-transparent and **does not ac
 
 Upstream constants for GP/explore prompts remain for legacy rendering only; they are **not** advertised and **cannot spawn**.
 
-## GitHub Pages (Grok Builder site)
+## Public site (Titanium / ds4cc Pages)
 
-Live site (after Pages is set to **branch `main` / folder `/docs`**):
+Primary Grok Builder install + config lives on the **ds4cc marketplace** GitHub Pages (same site as Codex Titanium builds):
 
-**https://veigapunk.github.io/grok-build-livepatch/**
+**https://veigapunk.github.io/ds4cc-marketplace/** · config: [grok-cli-config.toml](https://veigapunk.github.io/ds4cc-marketplace/grok-cli-config.toml)
 
-Sources: `docs/index.html`, `docs/style.css`, `docs/cli-config.toml`, `docs/.nojekyll`.
-
-One-time on GitHub (Settings → Pages → Deploy from a branch → `main` → `/docs` → Save). SSH push alone cannot flip the Pages switch; after that, every push to `main` updates the site.
+Optional mirror under this repo `docs/` (if Pages enabled): `https://veigapunk.github.io/grok-build-livepatch/`
 
 ## Recommended CLI config (website / host)
 
