@@ -1,5 +1,5 @@
 diff --git c/crates/codegen/xai-grok-agent/src/builder.rs w/crates/codegen/xai-grok-agent/src/builder.rs
-index ab7c556..d4bc776 100644
+index ab7c556..da5b84e 100644
 --- c/crates/codegen/xai-grok-agent/src/builder.rs
 +++ w/crates/codegen/xai-grok-agent/src/builder.rs
 @@ -1227,9 +1227,9 @@ const TASK_TOOL_NAMING: xai_tool_types::TaskToolNaming<'static> = xai_tool_types
@@ -25,7 +25,15 @@ index ab7c556..d4bc776 100644
  a short ${{ params.task.description }}, and a detailed ${{ params.task.prompt }}.\n\
  ${{ params.task.run_in_background }}: Returns immediately with a subagent_id. Use the task output tool to retrieve results. This is set to true by default.";
  /// CLI [`xai_tool_types::SubagentToolNaming`]: each kind maps to its
-@@ -1350,31 +1351,30 @@ mod tests {
+@@ -1261,6 +1262,7 @@ const SUBAGENT_TOOL_NAMING: xai_tool_types::SubagentToolNaming<'static> =
+ fn builtin_tools_fragment(name: BuiltinAgentName) -> String {
+     let subagent = match name {
+         BuiltinAgentName::GeneralPurpose => xai_tool_types::GENERAL_PURPOSE_SUBAGENT,
++        BuiltinAgentName::Agent => xai_tool_types::AGENT_SUBAGENT,
+         BuiltinAgentName::Explore => xai_tool_types::EXPLORE_SUBAGENT,
+         BuiltinAgentName::Plan => xai_tool_types::PLAN_SUBAGENT,
+         _ => return String::new(),
+@@ -1350,31 +1352,30 @@ mod tests {
      }
      #[test]
      fn build_task_description_builtin_includes_tools() {
@@ -75,7 +83,7 @@ index ab7c556..d4bc776 100644
      }
      #[test]
      fn build_task_description_user_entry_is_raw() {
-@@ -1410,32 +1410,32 @@ mod tests {
+@@ -1410,32 +1411,32 @@ mod tests {
      #[test]
      fn build_task_description_shadowed_builtin_uses_user_desc() {
          let subagents = vec![SubagentEntry {
@@ -116,7 +124,7 @@ index ab7c556..d4bc776 100644
          )];
          let desc = build_task_description(&subagents, &[]);
          assert!(
-@@ -1450,9 +1450,9 @@ mod tests {
+@@ -1450,9 +1451,9 @@ mod tests {
      #[test]
      fn build_task_description_uses_template_variables() {
          let subagents = vec![entry(
@@ -129,7 +137,7 @@ index ab7c556..d4bc776 100644
          )];
          let desc = build_task_description(&subagents, &[]);
          assert!(
-@@ -1475,9 +1475,9 @@ mod tests {
+@@ -1475,9 +1476,9 @@ mod tests {
      #[test]
      fn build_task_description_lists_public_model_slugs() {
          let subagents = vec![entry(
@@ -142,7 +150,7 @@ index ab7c556..d4bc776 100644
          )];
          let desc = build_task_description(
              &subagents,
-@@ -1497,9 +1497,9 @@ mod tests {
+@@ -1497,9 +1498,9 @@ mod tests {
      #[test]
      fn build_task_description_handles_empty_model_catalog() {
          let subagents = vec![entry(
@@ -155,7 +163,7 @@ index ab7c556..d4bc776 100644
          )];
          let desc = build_task_description(&subagents, &[]);
          assert!(desc.contains("No explicit model slugs are currently available."));
-@@ -1546,9 +1546,9 @@ mod tests {
+@@ -1546,9 +1547,9 @@ mod tests {
      #[test]
      fn build_task_description_contains_resume_from_guidance() {
          let subagents = vec![entry(
@@ -168,7 +176,7 @@ index ab7c556..d4bc776 100644
          )];
          let desc = build_task_description(&subagents, &[]);
          assert!(
-@@ -1568,6 +1568,22 @@ mod tests {
+@@ -1568,6 +1569,22 @@ mod tests {
              "should state the resumed agent must match subagent_type"
          );
      }
@@ -192,35 +200,100 @@ index ab7c556..d4bc776 100644
      /// skill name — including `paths:`-gated and preloaded skills that the
      /// listing baseline (`slash_skills`) holds back — so session-start
 diff --git c/crates/codegen/xai-grok-agent/src/config.rs w/crates/codegen/xai-grok-agent/src/config.rs
-index 4bedcd8..21f6bbd 100644
+index 4bedcd8..10042c1 100644
 --- c/crates/codegen/xai-grok-agent/src/config.rs
 +++ w/crates/codegen/xai-grok-agent/src/config.rs
-@@ -673,8 +673,9 @@ where
+@@ -673,9 +673,12 @@ where
  /// are defined in exactly one place. The enum covers all built-in
  /// agents for centralized name management and `by_name()` dispatch.
  ///
 -/// `subagent_variants()` returns only the 3 that are exposed to the LLM
 -/// via the `TaskTool` description. The remaining 6 are top-level agent
+-/// profiles resolvable by name but not advertised as subagent types.
 +/// `subagent_variants()` returns only the built-ins exposed to the LLM
 +/// via the `TaskTool` description. `general-purpose` and `explore` are
-+/// hard-banned and omitted. Remaining enum variants are top-level agent
- /// profiles resolvable by name but not advertised as subagent types.
++/// hard-banned and omitted. `agent` is a full-capability alias of
++/// general-purpose resolvable for first-party spawns but not Task-advertised.
++/// Remaining enum variants are top-level agent profiles resolvable by name
++/// but not advertised as subagent types.
  #[derive(
      Debug, Clone, Copy, PartialEq, Eq, Hash, Display, EnumString, EnumIter, AsRefStr, IntoStaticStr,
-@@ -725,8 +726,11 @@ impl BuiltinAgentName {
+ )]
+@@ -689,6 +692,8 @@ pub enum BuiltinAgentName {
+     Codex,
+     Opencode,
+     GeneralPurpose,
++    /// Full-capability alias of [`Self::GeneralPurpose`] (not banned, not Task-ads).
++    Agent,
+     Explore,
+     Plan,
+     BrowserUse,
+@@ -718,6 +723,7 @@ impl BuiltinAgentName {
+             Self::Codex => AgentDefinition::codex(),
+             Self::Opencode => AgentDefinition::opencode(),
+             Self::GeneralPurpose => AgentDefinition::general_purpose(),
++            Self::Agent => AgentDefinition::agent(),
+             Self::Explore => AgentDefinition::explore(),
+             Self::Plan => AgentDefinition::plan(),
+             Self::BrowserUse => AgentDefinition::browser_use(),
+@@ -725,8 +731,12 @@ impl BuiltinAgentName {
          }
      }
      /// Built-in agents available as subagents via the Task tool.
 +    ///
 +    /// `GeneralPurpose` and `Explore` are intentionally excluded — they are
 +    /// hard-banned at spawn validation (`is_banned_subagent_type`).
++    /// `Agent` is also excluded from ads (first-party only; same toolset as GP).
      pub fn subagent_variants() -> &'static [Self] {
 -        &[Self::GeneralPurpose, Self::Explore, Self::Plan]
 +        &[Self::Plan]
      }
  }
  /// Portable agent identity — parsed from .grok/agents/*.md.
-@@ -2552,9 +2556,9 @@ description: Test default tool config
+@@ -1582,6 +1592,9 @@ impl AgentDefinition {
+         }
+     }
+     /// General-purpose subagent definition.
++    ///
++    /// Legacy name — hard-banned at spawn. Prefer [`Self::agent`] for
++    /// first-party full-capability spawns.
+     pub fn general_purpose() -> Self {
+         use crate::prompt::subagent_prompts;
+         Self {
+@@ -1592,6 +1605,16 @@ impl AgentDefinition {
+             ..Self::base(BuiltinAgentName::GeneralPurpose, "")
+         }
+     }
++    /// Full-capability subagent (`agent`) — same toolset/prompt as
++    /// general-purpose, not Task-advertised, not hard-banned.
++    pub fn agent() -> Self {
++        use crate::prompt::subagent_prompts;
++        Self {
++            description: xai_tool_types::AGENT_SUBAGENT.description.to_string(),
++            prompt_body: Some(subagent_prompts::GENERAL_PURPOSE_PROMPT.to_string()),
++            ..Self::base(BuiltinAgentName::Agent, "")
++        }
++    }
+     /// Explore subagent — fast, read-only codebase exploration.
+     pub fn explore() -> Self {
+         use crate::prompt::subagent_prompts;
+@@ -1837,6 +1860,7 @@ mod tests {
+             | BuiltinAgentName::GrokBuildPlanNoSubagents
+             | BuiltinAgentName::GrokBuildAskUser
+             | BuiltinAgentName::GeneralPurpose
++            | BuiltinAgentName::Agent
+             | BuiltinAgentName::Explore
+             | BuiltinAgentName::Plan
+             | BuiltinAgentName::Opencode
+@@ -2521,6 +2545,7 @@ description: Test default tool config
+             ("codex", BuiltinAgentName::Codex),
+             ("opencode", BuiltinAgentName::Opencode),
+             ("general-purpose", BuiltinAgentName::GeneralPurpose),
++            ("agent", BuiltinAgentName::Agent),
+             ("explore", BuiltinAgentName::Explore),
+             ("plan", BuiltinAgentName::Plan),
+             ("browser-use", BuiltinAgentName::BrowserUse),
+@@ -2552,12 +2577,26 @@ description: Test default tool config
      #[test]
      fn test_builtin_agent_name_subagent_variants() {
          let variants = BuiltinAgentName::subagent_variants();
@@ -229,12 +302,29 @@ index 4bedcd8..21f6bbd 100644
 -        assert!(variants.contains(&BuiltinAgentName::Explore));
 +        assert_eq!(variants.len(), 1);
 +        assert!(!variants.contains(&BuiltinAgentName::GeneralPurpose));
++        assert!(!variants.contains(&BuiltinAgentName::Agent));
 +        assert!(!variants.contains(&BuiltinAgentName::Explore));
          assert!(variants.contains(&BuiltinAgentName::Plan));
      }
      #[test]
++    fn test_agent_alias_matches_general_purpose_capability() {
++        let gp = AgentDefinition::general_purpose();
++        let agent = AgentDefinition::agent();
++        assert_eq!(agent.name, "agent");
++        assert_eq!(gp.name, "general-purpose");
++        assert_eq!(agent.prompt_body, gp.prompt_body);
++        assert_eq!(
++            agent.tool_config.behavior_preset,
++            gp.tool_config.behavior_preset
++        );
++        assert_eq!(agent.permission_mode, gp.permission_mode);
++    }
++    #[test]
+     fn test_all_builtins_have_inherit_model() {
+         use strum::IntoEnumIterator;
+         for variant in BuiltinAgentName::iter() {
 diff --git c/crates/codegen/xai-grok-agent/src/discovery.rs w/crates/codegen/xai-grok-agent/src/discovery.rs
-index 4f66263..88d9542 100644
+index 4f66263..9050de6 100644
 --- c/crates/codegen/xai-grok-agent/src/discovery.rs
 +++ w/crates/codegen/xai-grok-agent/src/discovery.rs
 @@ -65,7 +65,7 @@ pub enum SubagentSource {
@@ -246,7 +336,7 @@ index 4f66263..88d9542 100644
  /// 2. Discover user-defined agents from project, user, and bundled agent dirs
  /// 3. Merge: project-level user agents shadow built-ins with the same name;
  ///    user-level and bundled agents with built-in names are skipped (maintains
-@@ -309,10 +309,10 @@ fn by_name_in_cwd_with_home(
+@@ -309,10 +309,12 @@ fn by_name_in_cwd_with_home(
  /// These are the pre-defined agent profiles that can be launched via the
  /// Task tool. User/project-level agent files can shadow these by name.
  ///
@@ -257,10 +347,12 @@ index 4f66263..88d9542 100644
  /// - `plan` — read-only architecture & implementation planning
 +///
 +/// Note: `general-purpose` and `explore` are hard-banned and omitted.
++/// `agent` is a full-capability first-party alias and is also omitted from
++/// Task ads (still resolvable via [`by_name`]).
  pub fn builtin_subagents() -> Vec<AgentDefinition> {
      BuiltinAgentName::subagent_variants()
          .iter()
-@@ -1088,33 +1088,24 @@ mod tests {
+@@ -1088,33 +1090,24 @@ mod tests {
      }
  
      #[test]
@@ -305,7 +397,7 @@ index 4f66263..88d9542 100644
      }
  
      #[test]
-@@ -1125,7 +1116,7 @@ mod tests {
+@@ -1125,7 +1118,7 @@ mod tests {
              AgentScope::Project,
          )];
          let entries = merge_subagents(discovered, &HashMap::new());
@@ -314,7 +406,7 @@ index 4f66263..88d9542 100644
          let cr = entries.iter().find(|e| e.name == "code-reviewer").unwrap();
          assert_eq!(cr.description, "Reviews code");
          assert_eq!(
-@@ -1146,23 +1137,24 @@ mod tests {
+@@ -1146,23 +1139,24 @@ mod tests {
          )];
          let toggle = HashMap::from([("code-reviewer".to_string(), false)]);
          let entries = merge_subagents(discovered, &toggle);
@@ -346,7 +438,7 @@ index 4f66263..88d9542 100644
              SubagentSource::UserDefined {
                  scope: AgentScope::Project
              }
-@@ -1172,53 +1164,52 @@ mod tests {
+@@ -1172,53 +1166,52 @@ mod tests {
      #[test]
      fn test_merge_shadowed_entry_has_shadows_builtin() {
          let discovered = vec![synthetic_agent(
@@ -419,7 +511,7 @@ index 4f66263..88d9542 100644
          ));
      }
  
-@@ -1230,14 +1221,11 @@ mod tests {
+@@ -1230,14 +1223,11 @@ mod tests {
              AgentScope::User,
          )];
          let entries = merge_subagents(discovered, &HashMap::new());
@@ -437,7 +529,7 @@ index 4f66263..88d9542 100644
              SubagentSource::UserDefined {
                  scope: AgentScope::User
              }
-@@ -1252,9 +1240,9 @@ mod tests {
+@@ -1252,9 +1242,9 @@ mod tests {
              AgentScope::Bundled,
          )];
          let entries = merge_subagents(discovered, &HashMap::new());
@@ -449,7 +541,7 @@ index 4f66263..88d9542 100644
              SubagentSource::UserDefined {
                  scope: AgentScope::Bundled
              }
-@@ -1263,11 +1251,7 @@ mod tests {
+@@ -1263,11 +1253,7 @@ mod tests {
  
      #[test]
      fn test_merge_all_toggled_off_returns_empty() {
@@ -462,7 +554,7 @@ index 4f66263..88d9542 100644
          let entries = merge_subagents(vec![], &toggle);
          assert!(entries.is_empty(), "all toggled off should return empty");
      }
-@@ -1275,15 +1259,15 @@ mod tests {
+@@ -1275,15 +1261,15 @@ mod tests {
      #[test]
      fn test_merge_invalid_user_agent_preserves_builtin() {
          // Simulate: discover() skips invalid files (returns empty for that file).
@@ -484,7 +576,7 @@ index 4f66263..88d9542 100644
          ));
      }
  
-@@ -1335,12 +1319,9 @@ mod tests {
+@@ -1335,12 +1321,9 @@ mod tests {
          );
  
          let entries = all_subagents_with_home(tmp.path(), &HashMap::new(), None, None);
@@ -499,7 +591,7 @@ index 4f66263..88d9542 100644
      }
  
      #[test]
-@@ -1548,6 +1529,6 @@ mod tests {
+@@ -1548,6 +1531,6 @@ mod tests {
          let toggle = HashMap::from([("test-agent".to_string(), false)]);
          let entries = all_subagents_with_home(tmp.path(), &toggle, None, None);
          let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
@@ -552,7 +644,7 @@ index 8008cad..9489504 100644
          }
          SubagentValidateTypeOutcome::NotAllowed { allowed } => {
 diff --git c/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs w/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
-index ae384a3..c4976a8 100644
+index ae384a3..899e619 100644
 --- c/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
 +++ w/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
 @@ -1403,23 +1403,38 @@ fn make_validation_ctx(toggle: HashMap<String, bool>) -> SubagentValidationConte
@@ -709,22 +801,119 @@ index ae384a3..c4976a8 100644
                  );
          }
          other => panic!("expected Unknown, got {other:?}"),
+@@ -1579,7 +1621,13 @@ fn describe_subagent_type_unknown_returns_sorted_available() {
+             let mut sorted = available.clone();
+             sorted.sort();
+             assert_eq!(available, sorted, "available must be sorted");
+-            assert!(available.iter().any(|n| n == "general-purpose"));
++            assert!(available.iter().any(|n| n == "plan"));
++            for banned in ["general-purpose", "explore"] {
++                assert!(
++                    !available.iter().any(|n| n == banned),
++                    "available must not advertise banned {banned:?}: {available:?}",
++                );
++            }
+         }
+         other => panic!("expected Unknown, got {other:?}"),
+     }
+@@ -1596,7 +1644,9 @@ fn describe_subagent_type_disabled_when_toggled_off() {
+ fn describe_subagent_type_not_allowed_outside_allow_list() {
+     let mut ctx = ctx_with_toggle(HashMap::new());
+     ctx.allowed_subagent_types = Some(vec!["plan".to_string()]);
+-    match describe_subagent_type("explore", None, &ctx) {
++    // Use the non-banned full-capability alias so the allow-list gate fires
++    // (banned types short-circuit to Disabled before NotAllowed).
++    match describe_subagent_type(xai_tool_types::AGENT_SUBAGENT_TYPE, None, &ctx) {
+         SubagentDescribeOutcome::NotAllowed { allowed } => {
+             assert_eq!(allowed, vec!["plan".to_string()]);
+         }
+@@ -1604,21 +1654,21 @@ fn describe_subagent_type_not_allowed_outside_allow_list() {
+     }
+ }
+ /// Regression: on the DEFAULT grok-build host —
+-/// the primary `/goal` host — the `general-purpose` toolset's only
++/// the primary `/goal` host — the full-capability `agent` toolset's only
+ /// file-mutator is `search_replace` (`ToolKind::Edit`); the `write`
+ /// tool (`ToolKind::Write`) is injection-only and absent from the
+ /// pre-injection describe probe. The planner gate must therefore key on
+ /// the Edit-class capability, which this asserts is present.
+ #[test]
+-fn describe_default_host_general_purpose_has_edit_not_write() {
++fn describe_default_host_agent_has_edit_not_write() {
+     use xai_grok_tools::types::tool::ToolKind;
+     let ctx = ctx_with_toggle(HashMap::new());
+     let SubagentDescribeOutcome::Ok(summary) = describe_subagent_type(
+-        "general-purpose",
++        xai_tool_types::AGENT_SUBAGENT_TYPE,
+         None,
+         &ctx,
+     ) else {
+-        panic!("expected Ok for default-host general-purpose");
++        panic!("expected Ok for default-host agent");
+     };
+     assert!(summary.can_read, "default host reads (read_file)");
+     assert!(
+@@ -1638,7 +1688,7 @@ fn describe_default_host_general_purpose_has_edit_not_write() {
+ fn goal_harness_override_unresolvable_returns_unknown() {
+     let ctx = ctx_with_toggle(HashMap::new());
+     match describe_subagent_type(
+-        "general-purpose",
++        xai_tool_types::AGENT_SUBAGENT_TYPE,
+         Some("totally-bogus-harness"),
+         &ctx,
+     ) {
+@@ -1659,8 +1709,9 @@ fn subagent_keeps_default_flavor_when_parent_model_is_non_strict() {
+     ctx.parent_model_agent_type = Some(
+         BuiltinAgentName::GrokBuildPlan.as_ref().to_string(),
+     );
+-    let mut def = resolve_agent_definition("general-purpose", &ctx).expect("resolves");
+-    resolve_subagent_toolset("general-purpose", None, &ctx, &mut def);
++    let mut def =
++        resolve_agent_definition(xai_tool_types::AGENT_SUBAGENT_TYPE, &ctx).expect("resolves");
++    resolve_subagent_toolset(xai_tool_types::AGENT_SUBAGENT_TYPE, None, &ctx, &mut def);
+     assert!(
+             !crate::session::is_cursor_user_template(&def.user_message_template),
+             "a non-strict parent model must leave subagents on the default harness",
 diff --git c/crates/codegen/xai-grok-shell/src/session/goal_planner.rs w/crates/codegen/xai-grok-shell/src/session/goal_planner.rs
-index 43f368b..75117fd 100644
+index 43f368b..32c1554 100644
 --- c/crates/codegen/xai-grok-shell/src/session/goal_planner.rs
 +++ w/crates/codegen/xai-grok-shell/src/session/goal_planner.rs
-@@ -28,6 +28,9 @@ use xai_grok_tools::implementations::grok_build::task::types::{
+@@ -19,8 +19,9 @@ use xai_grok_tools::implementations::grok_build::task::types::{
+ // Shared per-role model override + spawn-and-retry-once fail-open wrapper
+ 
+ /// Every `/goal` role (planner, strategist, each verifier skeptic) spawns its
+-/// subagent as `general-purpose`. The role's configured `agent_type` selects
+-/// only the HARNESS (system prompt + toolset flavor),
++/// subagent as [`xai_tool_types::AGENT_SUBAGENT_TYPE`] (`"agent"`) — full
++/// capability, not hard-banned, not Task-advertised. The role's configured
++/// `agent_type` selects only the HARNESS (system prompt + toolset flavor),
+ /// threaded as [`SubagentRuntimeOverrides::harness_agent_type`]; the
+ /// subagent_type stays fixed so the role keeps a capable toolset on whichever
+ /// harness is chosen. Single source of truth shared by the three role spawners
+@@ -28,7 +29,7 @@ use xai_grok_tools::implementations::grok_build::task::types::{
  /// toolset matches the spawned one.
  ///
  /// [`SubagentRuntimeOverrides::harness_agent_type`]: xai_grok_tools::implementations::grok_build::task::types::SubagentRuntimeOverrides::harness_agent_type
-+///
-+/// Note: hosts that hard-ban `general-purpose` at spawn must set goal
-+/// `agent_type` overrides (or accept /goal role spawn failure).
- pub(crate) const GOAL_ROLE_SUBAGENT_TYPE: &str = "general-purpose";
+-pub(crate) const GOAL_ROLE_SUBAGENT_TYPE: &str = "general-purpose";
++pub(crate) const GOAL_ROLE_SUBAGENT_TYPE: &str = xai_tool_types::AGENT_SUBAGENT_TYPE;
  pub(crate) const GOAL_ROLE_AWAIT_BUDGET_EXCEEDED: &str =
      "goal role subagent exceeded foreground wait budget";
+ 
+diff --git c/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs w/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
+index b35e16d..a545d34 100644
+--- c/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
++++ w/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
+@@ -381,7 +381,7 @@ impl HostService {
+         let subagent_type = opts
+             .agent_type
+             .clone()
+-            .unwrap_or_else(|| "general-purpose".to_string());
++            .unwrap_or_else(|| xai_tool_types::AGENT_SUBAGENT_TYPE.to_string());
+ 
+         let schema_validator = match &opts.output_schema {
+             None => None,
 diff --git c/crates/codegen/xai-grok-subagent-resolution/src/definition.rs w/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
-index ad98001..b9bb87f 100644
+index ad98001..4bcce75 100644
 --- c/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
 +++ w/crates/codegen/xai-grok-subagent-resolution/src/definition.rs
 @@ -80,6 +80,9 @@ pub fn discover_agent_definition(
@@ -823,7 +1012,7 @@ index ad98001..b9bb87f 100644
          apply_child_tool_policy(&mut definition, None, false);
          let kinds: Vec<Option<ToolKind>> = definition
              .tool_config
-@@ -338,29 +367,83 @@ mod tests {
+@@ -338,29 +367,90 @@ mod tests {
      #[test]
      fn gates_disabled_and_not_allowed_definitions() {
          let cwd = tempfile::tempdir().unwrap();
@@ -896,11 +1085,18 @@ index ad98001..b9bb87f 100644
 +            gate_agent_definition("EXPLORE", &ctx_on),
 +            Err(ResolutionError::Disabled { .. })
 +        ));
-+        // Live builtin still passes the gate.
++        // Live builtins still pass the gate (plan ads; agent first-party alias).
 +        assert!(gate_agent_definition("plan", &ctx).is_ok());
++        assert!(gate_agent_definition(xai_tool_types::AGENT_SUBAGENT_TYPE, &ctx).is_ok());
++        assert!(
++            resolve_agent_definition(xai_tool_types::AGENT_SUBAGENT_TYPE, &ctx).is_ok(),
++            "agent alias must resolve under hard ban of general-purpose"
++        );
 +        // Banned names never appear in discovery ads (even if re-admitted via CLI).
 +        let names = available_agent_names(&ctx);
 +        assert!(!names.iter().any(|n| xai_tool_types::is_banned_subagent_type(n)));
++        // agent is intentionally not Task-advertised.
++        assert!(!names.iter().any(|n| n == xai_tool_types::AGENT_SUBAGENT_TYPE));
 +    }
 +    #[test]
      fn definition_defaults_fill_runtime_without_overwriting_explicit_values() {
@@ -912,7 +1108,7 @@ index ad98001..b9bb87f 100644
          definition.isolation = Some(IsolationMode::Worktree);
          let mut runtime = EffectiveRuntimeConfig::default();
          apply_definition_runtime_defaults(&mut runtime, &definition);
-@@ -371,7 +454,7 @@ mod tests {
+@@ -371,7 +461,7 @@ mod tests {
          let cwd = tempfile::tempdir().unwrap();
          let toggles = HashMap::new();
          let definition =
@@ -921,7 +1117,7 @@ index ad98001..b9bb87f 100644
          let renderer = TemplateRenderer::new(
              HashMap::from([
                  (ToolKind::Read, "read_x".to_string()),
-@@ -388,7 +471,7 @@ mod tests {
+@@ -388,7 +478,7 @@ mod tests {
          )
          .unwrap();
          assert!(prompt.contains("<project_instructions_spec>"));
@@ -930,7 +1126,7 @@ index ad98001..b9bb87f 100644
          assert!(prompt.contains(&format!("Workspace Path: {}", cwd.path().display())));
          assert!(!prompt.contains("${{"));
      }
-@@ -398,7 +481,7 @@ mod tests {
+@@ -398,7 +488,7 @@ mod tests {
          std::fs::write(cwd.path().join("AGENTS.md"), "Use the project contract.").unwrap();
          let toggles = HashMap::new();
          let definition =
@@ -939,6 +1135,28 @@ index ad98001..b9bb87f 100644
          let message =
              render_subagent_initial_user_message(&definition, cwd.path(), CompatConfig::default())
                  .await
+diff --git c/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs w/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs
+index 1b16e58..064b2b0 100644
+--- c/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs
++++ w/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs
+@@ -659,7 +659,7 @@ impl SchedulerActor {
+             id: subagent_id.clone(),
+             prompt: framed_prompt,
+             description,
+-            subagent_type: "general-purpose".to_string(),
++            subagent_type: xai_tool_types::AGENT_SUBAGENT_TYPE.to_string(),
+             parent_session_id,
+             parent_prompt_id: None,
+             resume_from,
+@@ -1847,7 +1847,7 @@ mod tests {
+         assert!(request.surface_completion);
+         assert!(request.parent_prompt_id.is_none());
+         assert!(request.resume_from.is_none(), "first iteration is fresh");
+-        assert_eq!(request.subagent_type, "general-purpose");
++        assert_eq!(request.subagent_type, xai_tool_types::AGENT_SUBAGENT_TYPE);
+         assert_eq!(request.parent_session_id, "parent-session");
+         assert!(request.prompt.contains("check deploy status"));
+         assert!(request.prompt.contains(&task_id));
 diff --git c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs w/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
 index a151e21..ad3b7c8 100644
 --- c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
@@ -1004,20 +1222,37 @@ index a151e21..ad3b7c8 100644
          .await;
          assert!(
 diff --git c/crates/common/xai-tool-types/src/lib.rs w/crates/common/xai-tool-types/src/lib.rs
-index fd19d74..8680d81 100644
+index fd19d74..b51ac76 100644
 --- c/crates/common/xai-tool-types/src/lib.rs
 +++ w/crates/common/xai-tool-types/src/lib.rs
-@@ -19,7 +19,7 @@ pub use task::{
-     TaskOutputOutput, TaskOutputResult, TaskOutputToolInput, TaskOutputToolNaming, TaskToolInput,
-     TaskToolNaming, WaitMode, WaitTasksToolInput, WaitTasksToolNaming, build_kill_task_description,
-     build_task_description, build_task_output_description, build_wait_tasks_description,
+@@ -11,15 +11,16 @@ pub use serde_lenient::{
+     deserialize_lenient_bool, deserialize_lenient_option_bool, lenient_bool_from_json,
+ };
+ pub use task::{
+-    BUILTIN_SUBAGENTS, BuiltinSubagent, EXPLORE_PROMPT, EXPLORE_SUBAGENT, GENERAL_PURPOSE_PROMPT,
+-    GENERAL_PURPOSE_SUBAGENT, KillTaskOutput, KillTaskResult, KillTaskToolInput,
+-    KillTaskToolNaming, MAX_MULTI_WAIT_IDS, MAX_WAIT_BLOCK_MS_DEFAULT, MAX_WAIT_MS_PLACEHOLDER,
+-    MultiTaskOutputResult, PLAN_PROMPT, PLAN_SUBAGENT, SubagentCapabilityMode,
+-    SubagentCompletedOutput, SubagentDescriptor, SubagentIsolationMode, SubagentToolNaming,
+-    TaskOutputOutput, TaskOutputResult, TaskOutputToolInput, TaskOutputToolNaming, TaskToolInput,
+-    TaskToolNaming, WaitMode, WaitTasksToolInput, WaitTasksToolNaming, build_kill_task_description,
+-    build_task_description, build_task_output_description, build_wait_tasks_description,
 -    builtin_subagent_by_name, default_subagent_type, format_resume_footer,
-+    builtin_subagent_by_name, default_subagent_type, is_banned_subagent_type, BANNED_SUBAGENT_TYPES, format_resume_footer,
++    AGENT_SUBAGENT, AGENT_SUBAGENT_TYPE, BUILTIN_SUBAGENTS, BuiltinSubagent, EXPLORE_PROMPT,
++    EXPLORE_SUBAGENT, GENERAL_PURPOSE_PROMPT, GENERAL_PURPOSE_SUBAGENT, KillTaskOutput,
++    KillTaskResult, KillTaskToolInput, KillTaskToolNaming, MAX_MULTI_WAIT_IDS,
++    MAX_WAIT_BLOCK_MS_DEFAULT, MAX_WAIT_MS_PLACEHOLDER, MultiTaskOutputResult, PLAN_PROMPT,
++    PLAN_SUBAGENT, SubagentCapabilityMode, SubagentCompletedOutput, SubagentDescriptor,
++    SubagentIsolationMode, SubagentToolNaming, TaskOutputOutput, TaskOutputResult,
++    TaskOutputToolInput, TaskOutputToolNaming, TaskToolInput, TaskToolNaming, WaitMode,
++    WaitTasksToolInput, WaitTasksToolNaming, build_kill_task_description, build_task_description,
++    build_task_output_description, build_wait_tasks_description, builtin_subagent_by_name,
++    default_subagent_type, is_banned_subagent_type, BANNED_SUBAGENT_TYPES, format_resume_footer,
      format_subagent_completed, format_subagent_started_background, format_wait_cap_ms,
      is_not_sentinel, max_wait_block_ms, resolve_task_ids, sanitize_optional_arg, task_output_waits,
      task_output_waits_from_json,
 diff --git c/crates/common/xai-tool-types/src/task.rs w/crates/common/xai-tool-types/src/task.rs
-index 4454b7c..f6fb58f 100644
+index 4454b7c..287df6c 100644
 --- c/crates/common/xai-tool-types/src/task.rs
 +++ w/crates/common/xai-tool-types/src/task.rs
 @@ -20,10 +20,11 @@ pub struct TaskToolInput {
@@ -1063,7 +1298,50 @@ index 4454b7c..f6fb58f 100644
  }
  
  /// True when `s` is not a model-emitted placeholder (`""`, `"null"`, `"none"`,
-@@ -860,13 +878,25 @@ pub const PLAN_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
+@@ -827,14 +845,38 @@ Workspace boundary:
+ - Your default analysis scope is the workspace in <user_info>. Stay within it unless asked otherwise.
+ - Note explicitly if the design requires understanding external dependencies.";
+ 
++/// Shared tools template for full-capability built-ins (`general-purpose`, `agent`).
++const FULL_CAPABILITY_TOOLS_TEMPLATE: &str = "Has access to: \
++         ${{ tools.by_kind.execute }}, ${{ tools.by_kind.read }}, ${{ tools.by_kind.edit }}, \
++         ${{ tools.by_kind.list }}, ${{ tools.by_kind.search }}, ${{ tools.by_kind.web_search }}, \
++         and ${{ tools.by_kind.plan }}.";
++
+ /// The **general-purpose** built-in subagent.
++///
++/// Still defined for legacy prompt rendering and name resolution, but
++/// **hard-banned** at spawn via [`is_banned_subagent_type`]. Prefer
++/// [`AGENT_SUBAGENT`] / [`AGENT_SUBAGENT_TYPE`] for first-party full-capability spawns.
+ pub const GENERAL_PURPOSE_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
+     name: "general-purpose",
+     description: "General purpose agent for multi-step tasks.",
+-    tools_template: "Has access to: \
+-         ${{ tools.by_kind.execute }}, ${{ tools.by_kind.read }}, ${{ tools.by_kind.edit }}, \
+-         ${{ tools.by_kind.list }}, ${{ tools.by_kind.search }}, ${{ tools.by_kind.web_search }}, \
+-         and ${{ tools.by_kind.plan }}.",
++    tools_template: FULL_CAPABILITY_TOOLS_TEMPLATE,
++    prompt_template: GENERAL_PURPOSE_PROMPT,
++};
++
++/// Canonical first-party full-capability subagent type name.
++///
++/// Same toolset and prompt body as `general-purpose`, but **not** in
++/// [`BANNED_SUBAGENT_TYPES`] and **not** advertised in Task's built-in roster
++/// (Task still only lists `plan`). Used by `/goal` roles, scheduler loops, and
++/// workflow `agent()` host defaults.
++pub const AGENT_SUBAGENT_TYPE: &str = "agent";
++
++/// The **agent** built-in — full-capability alias of general-purpose for
++/// first-party / stock-safe spawns (not Task-advertised).
++pub const AGENT_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
++    name: AGENT_SUBAGENT_TYPE,
++    description: "Full-capability agent for multi-step implementation tasks.",
++    tools_template: FULL_CAPABILITY_TOOLS_TEMPLATE,
+     prompt_template: GENERAL_PURPOSE_PROMPT,
+ };
+ 
+@@ -860,13 +902,29 @@ pub const PLAN_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
  };
  
  /// The built-in subagent types advertised to the model, in display order.
@@ -1073,6 +1351,8 @@ index 4454b7c..f6fb58f 100644
 +/// `general-purpose` and `explore` remain defined as constants for
 +/// backwards-compat test/prompt rendering, but are **not** advertised and
 +/// are hard-banned at spawn validation via [`is_banned_subagent_type`].
++/// `agent` is resolvable for first-party spawns but is intentionally **not**
++/// listed here so Task does not re-advertise a generic full-capability type.
 +pub const BUILTIN_SUBAGENTS: [BuiltinSubagent; 1] = [PLAN_SUBAGENT];
  
  /// Look up a built-in subagent by its `subagent_type` name
@@ -1081,11 +1361,13 @@ index 4454b7c..f6fb58f 100644
 +///
 +/// Note: `general-purpose` and `explore` still resolve here for legacy
 +/// prompt rendering, but they are hard-banned at spawn time and are not
-+/// listed in [`BUILTIN_SUBAGENTS`].
++/// listed in [`BUILTIN_SUBAGENTS`]. `agent` resolves here (same prompt/tools
++/// as general-purpose) and is not banned.
  pub fn builtin_subagent_by_name(name: &str) -> Option<&'static BuiltinSubagent> {
 -    BUILTIN_SUBAGENTS.iter().find(|b| b.name == name)
 +    static ALL: &[BuiltinSubagent] = &[
 +        PLAN_SUBAGENT,
++        AGENT_SUBAGENT,
 +        GENERAL_PURPOSE_SUBAGENT,
 +        EXPLORE_SUBAGENT,
 +    ];
@@ -1093,7 +1375,7 @@ index 4454b7c..f6fb58f 100644
  }
  
  /// Tool/parameter names (and optional features) that vary between products when
-@@ -1170,7 +1200,7 @@ mod tests {
+@@ -1170,7 +1228,7 @@ mod tests {
      fn task_tool_input_defaults_background_true() {
          let input: TaskToolInput =
              serde_json::from_str(r#"{"description": "test", "prompt": "do it"}"#).unwrap();
@@ -1102,7 +1384,7 @@ index 4454b7c..f6fb58f 100644
          assert!(
              input.run_in_background,
              "run_in_background should default to true"
-@@ -1332,7 +1362,7 @@ mod tests {
+@@ -1332,7 +1390,7 @@ mod tests {
      fn builtin_subagent_catalog_names_and_descriptor_conversion() {
          assert_eq!(
              BUILTIN_SUBAGENTS.map(|b| b.name),
@@ -1111,7 +1393,7 @@ index 4454b7c..f6fb58f 100644
          );
  
          let desc = EXPLORE_SUBAGENT.to_descriptor(&plain_tool_naming());
-@@ -1350,6 +1380,34 @@ mod tests {
+@@ -1350,6 +1408,36 @@ mod tests {
          assert!(!GENERAL_PURPOSE_SUBAGENT.description.contains("  "));
      }
  
@@ -1120,6 +1402,8 @@ index 4454b7c..f6fb58f 100644
 +        assert!(is_banned_subagent_type("general-purpose"));
 +        assert!(is_banned_subagent_type("explore"));
 +        assert!(!is_banned_subagent_type("plan"));
++        assert!(!is_banned_subagent_type("agent"));
++        assert!(!is_banned_subagent_type("Agent"));
 +        assert!(!is_banned_subagent_type("the-planner"));
 +        assert!(!is_banned_subagent_type("scout"));
 +    }
@@ -1146,3 +1430,25 @@ index 4454b7c..f6fb58f 100644
      #[test]
      fn builtin_subagent_by_name_finds_builtins_only() {
          assert_eq!(
+@@ -1360,11 +1448,21 @@ mod tests {
+             builtin_subagent_by_name("general-purpose").map(|b| b.prompt_template),
+             Some(GENERAL_PURPOSE_PROMPT)
+         );
++        assert_eq!(
++            builtin_subagent_by_name("agent").map(|b| b.prompt_template),
++            Some(GENERAL_PURPOSE_PROMPT)
++        );
++        assert_eq!(
++            builtin_subagent_by_name("agent").map(|b| b.name),
++            Some(AGENT_SUBAGENT_TYPE)
++        );
+         assert_eq!(
+             builtin_subagent_by_name("plan").map(|b| b.prompt_template),
+             Some(PLAN_PROMPT)
+         );
+         assert!(builtin_subagent_by_name("code-reviewer").is_none());
++        // agent is full-capability but not Task-advertised.
++        assert!(!BUILTIN_SUBAGENTS.iter().any(|b| b.name == AGENT_SUBAGENT_TYPE));
+     }
+ 
+     #[test]
