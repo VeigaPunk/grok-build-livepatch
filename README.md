@@ -15,10 +15,26 @@ xAI's public tree (`xai-org/grok-build`) is source-transparent and **does not ac
 | `BUILTIN_SUBAGENTS` → only `plan` | Model no longer sees `general-purpose` / `explore` |
 | `subagent_variants()` → only `Plan` | Discovery matches |
 | `default_subagent_type()` → `plan` | Omitted type is no longer GP |
-| `is_banned_subagent_type()` + gate | Spawn of banned names hard-fails even if shadowed |
-| Unit test `banned_subagent_types_are_recognized` | Smoke |
+| `is_banned_subagent_type()` + gate (case-insensitive) | Spawn of banned names hard-fails even if shadowed |
+| Full-capability alias `agent` | First-party goal/scheduler/workflow keep full tools without GP |
+| Unit tests for ban + casefold | Smoke |
 
 Upstream constants for GP/explore prompts remain for legacy rendering only; they are **not** advertised and **cannot spawn**.
+
+## Recommended CLI config (website / host)
+
+Public template: **[docs/cli-config.toml](docs/cli-config.toml)** — marketplace sources, `xbgst-stack`, models, UI `permission_mode`, and subagent toggles aligned with the hard-ban.
+
+```bash
+# merge into your host config (do not commit secrets)
+cp docs/cli-config.toml ~/.grok/config.toml   # or merge by hand
+# then install stack + link livepatched binary
+grok plugin marketplace add VeigaPunk/grok-marketplace
+grok plugin install xbgst-stack@veigapunk/grok-marketplace --trust
+bash ~/.grok/installed-plugins/xbgst-stack-*/scripts/install-host.sh
+./scripts/install-timer.sh --link-bin
+./scripts/install-timer.sh --status   # expect active_cli=livepatch
+```
 
 ## Quick install (local, every 6h)
 

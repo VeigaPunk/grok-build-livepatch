@@ -1,0 +1,53 @@
+# Recommended Grok Build CLI config for VeigaPunk livepatch + xbgst-stack.
+# Install: copy to ~/.grok/config.toml (merge with your existing keys), then:
+#   grok plugin marketplace add VeigaPunk/grok-marketplace
+#   grok plugin install xbgst-stack@veigapunk/grok-marketplace --trust
+#   bash ~/.grok/installed-plugins/xbgst-stack-*/scripts/install-host.sh
+#   ./scripts/install-timer.sh --link-bin   # active_cli=livepatch
+#
+# Hard-ban of general-purpose/explore is enforced in the livepatched binary
+# (not only by [subagents.toggle]). First-party full-tool paths use "agent".
+
+[cli]
+installer = "internal"
+
+[marketplace]
+default_skills_installs_purged = true
+official_marketplace_auto_installed = true
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[[marketplace.sources]]
+name = "grok-marketplace"
+git = "https://github.com/VeigaPunk/grok-marketplace.git"
+
+[[marketplace.sources]]
+name = "ds4cc-marketplace"
+git = "https://github.com/VeigaPunk/ds4cc-marketplace.git"
+
+[ui]
+max_thoughts_width = 120
+fork_secondary_model = "grok-4.5"
+yolo = false
+compact_mode = false
+permission_mode = "always-approve"
+
+[plugins]
+enabled = [
+    "exa",
+    "tinyfish",
+    "cloudflare",
+    "xbgst-stack",
+    "heuer-planning",
+]
+
+[models]
+default = "grok-4.5"
+default_reasoning_effort = "low"
+
+[subagents.toggle]
+# Defense in depth: CLI livepatch already hard-rejects these at spawn.
+explore = false
+general-purpose = false
