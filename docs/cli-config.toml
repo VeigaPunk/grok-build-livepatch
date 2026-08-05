@@ -52,6 +52,7 @@ enabled = true
 # Flat tree for xbgst: judge spawns ≤16 siblings; children cannot re-spawn Task.
 # Raise to 2 only for intentional nested sub-leads. Env override: GROK_SUBAGENTS_MAX_DEPTH.
 max_depth = 1
+max_concurrent = 16
 
 [subagents.toggle]
 # Defense in depth: CLI livepatch already hard-rejects these at spawn.
