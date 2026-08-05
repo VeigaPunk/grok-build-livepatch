@@ -1,5 +1,8 @@
 # Recommended Grok Build CLI config for VeigaPunk livepatch + xbgst-stack.
-# Install: copy to ~/.grok/config.toml (merge with your existing keys), then:
+# Primary install UX: https://veigapunk.github.io/ds4cc-marketplace/
+#   config: https://veigapunk.github.io/ds4cc-marketplace/grok-cli-config.toml
+# Optional mirror (this file on Pages): https://veigapunk.github.io/grok-build-livepatch/
+# Install: copy/merge into ~/.grok/config.toml, then:
 #   grok plugin marketplace add VeigaPunk/grok-marketplace
 #   grok plugin install xbgst-stack@veigapunk/grok-marketplace --trust
 #   bash ~/.grok/installed-plugins/xbgst-stack-*/scripts/install-host.sh

@@ -130,6 +130,15 @@ xbgst / xbrd godspeed walks should spawn **specialists** (`the-planner`, `scout`
 
 Host timer + CLI link details: **[docs/HOST.md](docs/HOST.md)**.
 
+## Related stack
+
+| Piece | Role | Link |
+|-------|------|------|
+| **grok-build-livepatch** (this repo) | CLI hard-ban GP/explore; 6h timer; optional Pages mirror | [VeigaPunk/grok-build-livepatch](https://github.com/VeigaPunk/grok-build-livepatch) · [mirror](https://veigapunk.github.io/grok-build-livepatch/) |
+| **grok-marketplace** | Public Grok `xbgst-stack` + nested livepatch (**1.1.22**) | [VeigaPunk/grok-marketplace](https://github.com/VeigaPunk/grok-marketplace) |
+| **ds4cc-marketplace** | Multi-CLI marketplace + **primary** Grok Builder install UX | [VeigaPunk/ds4cc-marketplace](https://github.com/VeigaPunk/ds4cc-marketplace) · [site](https://veigapunk.github.io/ds4cc-marketplace/) |
+| **xbrd-spark / sekhmet** | L3 swarm substrate (≤64 jobs); plugin `sekhmet` on ds4cc | [VeigaPunk/xbrd-spark](https://github.com/VeigaPunk/xbrd-spark) |
+
 ## License
 
 Patches against Apache-2.0 `xai-org/grok-build`. This packaging is **MIT OR Apache-2.0** (see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)).
