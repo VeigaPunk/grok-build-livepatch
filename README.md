@@ -138,6 +138,7 @@ Host timer + CLI link details: **[docs/HOST.md](docs/HOST.md)**.
 | **grok-marketplace** | Public Grok `xbgst-stack` + nested livepatch (**1.1.22**) | [VeigaPunk/grok-marketplace](https://github.com/VeigaPunk/grok-marketplace) |
 | **ds4cc-marketplace** | Multi-CLI marketplace + **primary** Grok Builder install UX | [VeigaPunk/ds4cc-marketplace](https://github.com/VeigaPunk/ds4cc-marketplace) · [site](https://veigapunk.github.io/ds4cc-marketplace/) |
 | **xbrd-spark / sekhmet** | L3 swarm substrate (≤64 jobs); plugin `sekhmet` on ds4cc | [VeigaPunk/xbrd-spark](https://github.com/VeigaPunk/xbrd-spark) |
+| **xbgst-site** | Public xbgst hub | [site](https://veigapunk.github.io/xbgst-site/) · [VeigaPunk/xbgst-site](https://github.com/VeigaPunk/xbgst-site) |
 
 ## License
 
