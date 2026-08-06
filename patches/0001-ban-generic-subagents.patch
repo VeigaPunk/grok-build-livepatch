@@ -600,10 +600,10 @@ index 4f66263..9050de6 100644
      }
  }
 diff --git c/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs w/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs
-index 089b30b..78bc9ba 100644
+index f903a66..13b4e64 100644
 --- c/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs
 +++ w/crates/codegen/xai-grok-shell/src/agent/mvp_agent/session_registry.rs
-@@ -166,6 +166,13 @@ impl SessionRegistry {
+@@ -714,6 +714,13 @@ impl SessionRegistry {
              e.resident.get_or_insert_default().codebase_index = Some(index);
          });
      }
@@ -618,7 +618,7 @@ index 089b30b..78bc9ba 100644
      pub(super) fn counts(&self) -> SessionCounts {
          let mut counts = SessionCounts::default();
 diff --git c/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs w/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
-index 8008cad..9489504 100644
+index d62fcd0..5479eb7 100644
 --- c/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
 +++ w/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
 @@ -87,10 +87,17 @@ pub(crate) async fn run_shell_child(
@@ -644,7 +644,7 @@ index 8008cad..9489504 100644
          }
          SubagentValidateTypeOutcome::NotAllowed { allowed } => {
 diff --git c/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs w/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
-index ae384a3..899e619 100644
+index e7204fc..61a30d9 100644
 --- c/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
 +++ w/crates/codegen/xai-grok-shell/src/agent/subagent/tests/mod.rs
 @@ -1403,23 +1403,38 @@ fn make_validation_ctx(toggle: HashMap<String, bool>) -> SubagentValidationConte
@@ -900,10 +900,10 @@ index 43f368b..32c1554 100644
      "goal role subagent exceeded foreground wait budget";
  
 diff --git c/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs w/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
-index b35e16d..a545d34 100644
+index 94f180e..469c428 100644
 --- c/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
 +++ w/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
-@@ -381,7 +381,7 @@ impl HostService {
+@@ -382,7 +382,7 @@ impl HostService {
          let subagent_type = opts
              .agent_type
              .clone()
@@ -1158,10 +1158,10 @@ index 1b16e58..064b2b0 100644
          assert!(request.prompt.contains("check deploy status"));
          assert!(request.prompt.contains(&task_id));
 diff --git c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs w/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
-index a151e21..ad3b7c8 100644
+index 5195cc9..ef31a67 100644
 --- c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
 +++ w/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
-@@ -318,6 +318,12 @@ impl xai_tool_runtime::Tool for TaskTool {
+@@ -414,6 +414,12 @@ impl xai_tool_runtime::Tool for TaskTool {
                  )));
              }
              SubagentValidateTypeOutcome::Disabled => {
@@ -1174,7 +1174,7 @@ index a151e21..ad3b7c8 100644
                  return Err(xai_tool_runtime::ToolError::invalid_arguments(format!(
                      "Subagent '{}' is disabled via [subagents.toggle] in config.toml",
                      input.subagent_type
-@@ -1027,10 +1033,12 @@ mod tests {
+@@ -1169,10 +1175,12 @@ mod tests {
          let (backend, mut rx) = make_backend_with_validation(SubagentValidateTypeOutcome::Disabled);
          let resources = resources_for_task(backend);
  
@@ -1188,7 +1188,7 @@ index a151e21..ad3b7c8 100644
          )
          .await;
          let msg = result.expect_err("must reject").to_string();
-@@ -1038,6 +1046,23 @@ mod tests {
+@@ -1180,6 +1188,23 @@ mod tests {
          assert!(rx.try_recv().is_err());
      }
  
@@ -1212,7 +1212,7 @@ index a151e21..ad3b7c8 100644
      #[tokio::test]
      async fn not_allowed_subagent_type_returns_error_before_spawn() {
          let allowed = vec!["explore".to_string(), "plan".to_string()];
-@@ -1085,7 +1110,7 @@ mod tests {
+@@ -1227,7 +1252,7 @@ mod tests {
          let result = xai_tool_runtime::Tool::run(
              &TaskTool,
              test_ctx(resources.into_shared()),
@@ -1222,37 +1222,39 @@ index a151e21..ad3b7c8 100644
          .await;
          assert!(
 diff --git c/crates/common/xai-tool-types/src/lib.rs w/crates/common/xai-tool-types/src/lib.rs
-index fd19d74..b51ac76 100644
+index 970e98c..d5d318b 100644
 --- c/crates/common/xai-tool-types/src/lib.rs
 +++ w/crates/common/xai-tool-types/src/lib.rs
-@@ -11,15 +11,16 @@ pub use serde_lenient::{
+@@ -11,19 +11,19 @@ pub use serde_lenient::{
      deserialize_lenient_bool, deserialize_lenient_option_bool, lenient_bool_from_json,
  };
  pub use task::{
--    BUILTIN_SUBAGENTS, BuiltinSubagent, EXPLORE_PROMPT, EXPLORE_SUBAGENT, GENERAL_PURPOSE_PROMPT,
--    GENERAL_PURPOSE_SUBAGENT, KillTaskOutput, KillTaskResult, KillTaskToolInput,
--    KillTaskToolNaming, MAX_MULTI_WAIT_IDS, MAX_WAIT_BLOCK_MS_DEFAULT, MAX_WAIT_MS_PLACEHOLDER,
--    MultiTaskOutputResult, PLAN_PROMPT, PLAN_SUBAGENT, SubagentCapabilityMode,
--    SubagentCompletedOutput, SubagentDescriptor, SubagentIsolationMode, SubagentToolNaming,
--    TaskOutputOutput, TaskOutputResult, TaskOutputToolInput, TaskOutputToolNaming, TaskToolInput,
--    TaskToolNaming, WaitMode, WaitTasksToolInput, WaitTasksToolNaming, build_kill_task_description,
--    build_task_description, build_task_output_description, build_wait_tasks_description,
--    builtin_subagent_by_name, default_subagent_type, format_resume_footer,
-+    AGENT_SUBAGENT, AGENT_SUBAGENT_TYPE, BUILTIN_SUBAGENTS, BuiltinSubagent, EXPLORE_PROMPT,
-+    EXPLORE_SUBAGENT, GENERAL_PURPOSE_PROMPT, GENERAL_PURPOSE_SUBAGENT, KillTaskOutput,
-+    KillTaskResult, KillTaskToolInput, KillTaskToolNaming, MAX_MULTI_WAIT_IDS,
-+    MAX_WAIT_BLOCK_MS_DEFAULT, MAX_WAIT_MS_PLACEHOLDER, MultiTaskOutputResult, PLAN_PROMPT,
-+    PLAN_SUBAGENT, SubagentCapabilityMode, SubagentCompletedOutput, SubagentDescriptor,
-+    SubagentIsolationMode, SubagentToolNaming, TaskOutputOutput, TaskOutputResult,
-+    TaskOutputToolInput, TaskOutputToolNaming, TaskToolInput, TaskToolNaming, WaitMode,
-+    WaitTasksToolInput, WaitTasksToolNaming, build_kill_task_description, build_task_description,
-+    build_task_output_description, build_wait_tasks_description, builtin_subagent_by_name,
-+    default_subagent_type, is_banned_subagent_type, BANNED_SUBAGENT_TYPES, format_resume_footer,
-     format_subagent_completed, format_subagent_started_background, format_wait_cap_ms,
-     is_not_sentinel, max_wait_block_ms, resolve_task_ids, sanitize_optional_arg, task_output_waits,
-     task_output_waits_from_json,
+-    BACKGROUND_SUBAGENT_CONTINUE_PARENT_WORK, BUILTIN_SUBAGENTS, BuiltinSubagent, EXPLORE_PROMPT,
+-    EXPLORE_SUBAGENT, GENERAL_PURPOSE_PROMPT, GENERAL_PURPOSE_SUBAGENT, KillTaskOutput,
+-    KillTaskResult, KillTaskToolInput, KillTaskToolNaming, MAX_MULTI_WAIT_IDS,
+-    MAX_WAIT_BLOCK_MS_DEFAULT, MAX_WAIT_MS_PLACEHOLDER, MultiTaskOutputResult, PLAN_PROMPT,
+-    PLAN_SUBAGENT, SubagentCapabilityMode, SubagentCompletedOutput, SubagentDescriptor,
++    AGENT_SUBAGENT, AGENT_SUBAGENT_TYPE, BACKGROUND_SUBAGENT_CONTINUE_PARENT_WORK, BANNED_SUBAGENT_TYPES,
++    BUILTIN_SUBAGENTS, BuiltinSubagent, EXPLORE_PROMPT, EXPLORE_SUBAGENT, GENERAL_PURPOSE_PROMPT,
++    GENERAL_PURPOSE_SUBAGENT, KillTaskOutput, KillTaskResult, KillTaskToolInput, KillTaskToolNaming,
++    MAX_MULTI_WAIT_IDS, MAX_WAIT_BLOCK_MS_DEFAULT, MAX_WAIT_MS_PLACEHOLDER, MultiTaskOutputResult,
++    PLAN_PROMPT, PLAN_SUBAGENT, SubagentCapabilityMode, SubagentCompletedOutput, SubagentDescriptor,
+     SubagentIsolationMode, SubagentToolNaming, TaskOutputOutput, TaskOutputResult,
+     TaskOutputToolInput, TaskOutputToolNaming, TaskToolInput, TaskToolNaming, WaitMode,
+     WaitTasksToolInput, WaitTasksToolNaming, build_kill_task_description, build_task_description,
+     build_task_output_description, build_wait_tasks_description, builtin_subagent_by_name,
+     default_subagent_type, format_resume_footer, format_subagent_completed,
+-    format_subagent_started_background, format_wait_cap_ms, is_not_sentinel, max_wait_block_ms,
+-    resolve_task_ids, sanitize_optional_arg, should_continue_parent_work, task_output_waits,
+-    task_output_waits_from_json,
++    format_subagent_started_background, format_wait_cap_ms, is_banned_subagent_type, is_not_sentinel,
++    max_wait_block_ms, resolve_task_ids, sanitize_optional_arg, should_continue_parent_work,
++    task_output_waits, task_output_waits_from_json,
+ };
+ pub use types::{
+     ArgumentType, SchemaType, ToolArgument, ToolDescription, ValidationError, ValidationErrors,
 diff --git c/crates/common/xai-tool-types/src/task.rs w/crates/common/xai-tool-types/src/task.rs
-index 4454b7c..287df6c 100644
+index fb927da..3225919 100644
 --- c/crates/common/xai-tool-types/src/task.rs
 +++ w/crates/common/xai-tool-types/src/task.rs
 @@ -20,10 +20,11 @@ pub struct TaskToolInput {
@@ -1298,7 +1300,7 @@ index 4454b7c..287df6c 100644
  }
  
  /// True when `s` is not a model-emitted placeholder (`""`, `"null"`, `"none"`,
-@@ -827,14 +845,38 @@ Workspace boundary:
+@@ -953,14 +971,38 @@ Workspace boundary:
  - Your default analysis scope is the workspace in <user_info>. Stay within it unless asked otherwise.
  - Note explicitly if the design requires understanding external dependencies.";
  
@@ -1341,7 +1343,7 @@ index 4454b7c..287df6c 100644
      prompt_template: GENERAL_PURPOSE_PROMPT,
  };
  
-@@ -860,13 +902,29 @@ pub const PLAN_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
+@@ -986,13 +1028,29 @@ pub const PLAN_SUBAGENT: BuiltinSubagent = BuiltinSubagent {
  };
  
  /// The built-in subagent types advertised to the model, in display order.
@@ -1375,7 +1377,7 @@ index 4454b7c..287df6c 100644
  }
  
  /// Tool/parameter names (and optional features) that vary between products when
-@@ -1170,7 +1228,7 @@ mod tests {
+@@ -1296,7 +1354,7 @@ mod tests {
      fn task_tool_input_defaults_background_true() {
          let input: TaskToolInput =
              serde_json::from_str(r#"{"description": "test", "prompt": "do it"}"#).unwrap();
@@ -1384,7 +1386,7 @@ index 4454b7c..287df6c 100644
          assert!(
              input.run_in_background,
              "run_in_background should default to true"
-@@ -1332,7 +1390,7 @@ mod tests {
+@@ -1458,7 +1516,7 @@ mod tests {
      fn builtin_subagent_catalog_names_and_descriptor_conversion() {
          assert_eq!(
              BUILTIN_SUBAGENTS.map(|b| b.name),
@@ -1393,7 +1395,7 @@ index 4454b7c..287df6c 100644
          );
  
          let desc = EXPLORE_SUBAGENT.to_descriptor(&plain_tool_naming());
-@@ -1350,6 +1408,36 @@ mod tests {
+@@ -1476,6 +1534,36 @@ mod tests {
          assert!(!GENERAL_PURPOSE_SUBAGENT.description.contains("  "));
      }
  
@@ -1430,7 +1432,7 @@ index 4454b7c..287df6c 100644
      #[test]
      fn builtin_subagent_by_name_finds_builtins_only() {
          assert_eq!(
-@@ -1360,11 +1448,21 @@ mod tests {
+@@ -1486,11 +1574,21 @@ mod tests {
              builtin_subagent_by_name("general-purpose").map(|b| b.prompt_template),
              Some(GENERAL_PURPOSE_PROMPT)
          );
