@@ -618,10 +618,10 @@ index f903a66..13b4e64 100644
      pub(super) fn counts(&self) -> SessionCounts {
          let mut counts = SessionCounts::default();
 diff --git c/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs w/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
-index d62fcd0..5479eb7 100644
+index 9617812..9174044 100644
 --- c/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
 +++ w/crates/codegen/xai-grok-shell/src/agent/subagent/handle_request.rs
-@@ -87,10 +87,17 @@ pub(crate) async fn run_shell_child(
+@@ -92,10 +92,17 @@ pub(crate) async fn run_shell_child(
      };
      match gate_subagent_type(&request.subagent_type, &ctx) {
          SubagentValidateTypeOutcome::Disabled => {
@@ -900,10 +900,10 @@ index 43f368b..32c1554 100644
      "goal role subagent exceeded foreground wait budget";
  
 diff --git c/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs w/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
-index 94f180e..469c428 100644
+index 22b0b0a..45d9e29 100644
 --- c/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
 +++ w/crates/codegen/xai-grok-shell/src/session/workflow/host_service.rs
-@@ -382,7 +382,7 @@ impl HostService {
+@@ -490,7 +490,7 @@ impl HostService {
          let subagent_type = opts
              .agent_type
              .clone()
@@ -1136,7 +1136,7 @@ index ad98001..4bcce75 100644
              render_subagent_initial_user_message(&definition, cwd.path(), CompatConfig::default())
                  .await
 diff --git c/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs w/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs
-index 1b16e58..064b2b0 100644
+index 1ef15a1..06f795f 100644
 --- c/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs
 +++ w/crates/codegen/xai-grok-tools/src/implementations/grok_build/scheduler/actor.rs
 @@ -659,7 +659,7 @@ impl SchedulerActor {
@@ -1148,7 +1148,7 @@ index 1b16e58..064b2b0 100644
              parent_session_id,
              parent_prompt_id: None,
              resume_from,
-@@ -1847,7 +1847,7 @@ mod tests {
+@@ -1849,7 +1849,7 @@ mod tests {
          assert!(request.surface_completion);
          assert!(request.parent_prompt_id.is_none());
          assert!(request.resume_from.is_none(), "first iteration is fresh");
@@ -1158,10 +1158,10 @@ index 1b16e58..064b2b0 100644
          assert!(request.prompt.contains("check deploy status"));
          assert!(request.prompt.contains(&task_id));
 diff --git c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs w/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
-index 5195cc9..ef31a67 100644
+index c7b9135..cc81faf 100644
 --- c/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
 +++ w/crates/codegen/xai-grok-tools/src/implementations/grok_build/task/mod.rs
-@@ -414,6 +414,12 @@ impl xai_tool_runtime::Tool for TaskTool {
+@@ -415,6 +415,12 @@ impl xai_tool_runtime::Tool for TaskTool {
                  )));
              }
              SubagentValidateTypeOutcome::Disabled => {
@@ -1174,7 +1174,7 @@ index 5195cc9..ef31a67 100644
                  return Err(xai_tool_runtime::ToolError::invalid_arguments(format!(
                      "Subagent '{}' is disabled via [subagents.toggle] in config.toml",
                      input.subagent_type
-@@ -1169,10 +1175,12 @@ mod tests {
+@@ -1170,10 +1176,12 @@ mod tests {
          let (backend, mut rx) = make_backend_with_validation(SubagentValidateTypeOutcome::Disabled);
          let resources = resources_for_task(backend);
  
@@ -1188,7 +1188,7 @@ index 5195cc9..ef31a67 100644
          )
          .await;
          let msg = result.expect_err("must reject").to_string();
-@@ -1180,6 +1188,23 @@ mod tests {
+@@ -1181,6 +1189,23 @@ mod tests {
          assert!(rx.try_recv().is_err());
      }
  
@@ -1212,7 +1212,7 @@ index 5195cc9..ef31a67 100644
      #[tokio::test]
      async fn not_allowed_subagent_type_returns_error_before_spawn() {
          let allowed = vec!["explore".to_string(), "plan".to_string()];
-@@ -1227,7 +1252,7 @@ mod tests {
+@@ -1228,7 +1253,7 @@ mod tests {
          let result = xai_tool_runtime::Tool::run(
              &TaskTool,
              test_ctx(resources.into_shared()),
