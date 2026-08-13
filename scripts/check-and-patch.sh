@@ -181,6 +181,14 @@ ensure_cli_link() {
   mkdir -p "$(dirname "$BIN_LINK")"
   ln -sfn "$INSTALL_DIR/grok" "$BIN_LINK"
   log "ensured CLI link $BIN_LINK → $INSTALL_DIR/grok"
+  # Grok Titanium host name (Codex Titanium twin): same banned binary.
+  local titanium_dir titanium_path
+  titanium_dir="${GROK_TITANIUM_INSTALL:-$HOME/.local/opt/grok-titanium}"
+  titanium_path="${GROK_TITANIUM_PATH_LINK:-$HOME/.local/bin/grok-titanium}"
+  mkdir -p "$titanium_dir" "$(dirname "$titanium_path")"
+  ln -sfn "$INSTALL_DIR/grok" "$titanium_dir/grok"
+  ln -sfn "$titanium_dir/grok" "$titanium_path"
+  log "ensured grok-titanium $titanium_path → $titanium_dir/grok → $INSTALL_DIR/grok"
 }
 
 build_and_install() {

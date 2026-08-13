@@ -14,7 +14,8 @@ no network from this script).
   --status     Print preferred root, unit ExecStart, and whether the active
                ~/.grok/bin/grok is the livepatch build (no changes).
   --link-bin   Symlink ~/.grok/bin/grok → ~/.local/opt/grok-build-livepatch/grok
-               if that binary exists (opt-in; timer unit defaults REPLACE_BIN=1).
+               and grok-titanium (opt + ~/.local/bin) if that binary exists
+               (opt-in; timer unit defaults REPLACE_BIN=1).
 
 Install root resolution (first match wins):
   1) GROK_LIVEPATCH_ROOT if it contains scripts/check-and-patch.sh
@@ -32,6 +33,8 @@ UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UNIT="$UNIT_DIR/grok-build-livepatch.service"
 SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_DIR="${GROK_LIVEPATCH_INSTALL:-$HOME/.local/opt/grok-build-livepatch}"
+TITANIUM_DIR="${GROK_TITANIUM_INSTALL:-$HOME/.local/opt/grok-titanium}"
+TITANIUM_PATH="${GROK_TITANIUM_PATH_LINK:-$HOME/.local/bin/grok-titanium}"
 BIN_LINK="${GROK_BIN_LINK:-$HOME/.grok/bin/grok}"
 LIVE_BIN="$INSTALL_DIR/grok"
 
@@ -66,6 +69,13 @@ print_bin_status() {
   else
     echo "livepatch_bin_present=no (run check-and-patch to build)"
     echo "ban_in_binary=unknown"
+  fi
+  echo "titanium_opt=$TITANIUM_DIR/grok"
+  echo "titanium_path=$TITANIUM_PATH"
+  if [[ -x "$TITANIUM_PATH" || -L "$TITANIUM_PATH" ]]; then
+    echo "titanium_realpath=$(readlink -f "$TITANIUM_PATH" 2>/dev/null || true)"
+  else
+    echo "titanium_realpath=(missing)"
   fi
   if [[ -e "$BIN_LINK" || -L "$BIN_LINK" ]]; then
     active=$(readlink -f "$BIN_LINK" 2>/dev/null || true)
@@ -117,9 +127,13 @@ link_livepatch_bin() {
     echo "Build first: ./scripts/check-and-patch.sh  (or FORCE=1)" >&2
     exit 1
   fi
-  mkdir -p "$(dirname "$BIN_LINK")"
+  mkdir -p "$(dirname "$BIN_LINK")" "$TITANIUM_DIR" "$(dirname "$TITANIUM_PATH")"
   ln -sfn "$LIVE_BIN" "$BIN_LINK"
+  ln -sfn "$LIVE_BIN" "$TITANIUM_DIR/grok"
+  ln -sfn "$TITANIUM_DIR/grok" "$TITANIUM_PATH"
   echo "linked $BIN_LINK → $LIVE_BIN"
+  echo "linked $TITANIUM_DIR/grok → $LIVE_BIN"
+  echo "linked $TITANIUM_PATH → $TITANIUM_DIR/grok"
   print_bin_status
 }
 

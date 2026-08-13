@@ -48,6 +48,13 @@ Unit defaults `Environment=GROK_LIVEPATCH_REPLACE_BIN=1` so
 Opt out: set `REPLACE_BIN=0` on the user unit.
 
 ```bash
-./scripts/install-timer.sh --link-bin   # manual symlink
+./scripts/install-timer.sh --link-bin   # ~/.grok/bin/grok + grok-titanium
 ./scripts/gates.sh                      # fails if install binary lacks ban string
 ```
+
+`--link-bin` also installs the **Grok Titanium** host name (Codex Titanium twin):
+
+- `~/.local/opt/grok-titanium/grok` → livepatched binary
+- `~/.local/bin/grok-titanium` → that opt link
+
+Resolve: `GROK_BIN` → `grok-titanium` → `grok`. Same ban; first livepatch iteration is the host binary.
