@@ -35,20 +35,31 @@ jobs:
           echo "UPSTREAM_REV=$UPSTREAM_REV" >> "$GITHUB_ENV"
           echo "UPSTREAM_REV=$UPSTREAM_REV"
 
-      - name: Apply livepatch
+      - name: Apply livepatch series
         id: apply
         run: |
           set -euo pipefail
           cd /tmp/grok-build
-          if git apply --check "$GITHUB_WORKSPACE/patches/0001-ban-generic-subagents.patch"; then
-            git apply "$GITHUB_WORKSPACE/patches/0001-ban-generic-subagents.patch"
-            echo "result=ok" >> "$GITHUB_OUTPUT"
-          else
-            echo "result=needs-rebase" >> "$GITHUB_OUTPUT"
-            git apply --reject "$GITHUB_WORKSPACE/patches/0001-ban-generic-subagents.patch" || true
-            find . -name '*.rej' | head
-            exit 2
+          shopt -s nullglob
+          patches=("$GITHUB_WORKSPACE"/patches/*.patch)
+          if [[ ${#patches[@]} -eq 0 ]]; then
+            echo "no patches" >&2
+            exit 1
           fi
+          for p in "${patches[@]}"; do
+            echo "apply-check $(basename "$p")"
+            if ! git apply --check "$p"; then
+              echo "result=needs-rebase" >> "$GITHUB_OUTPUT"
+              git apply --reject "$p" || true
+              find . -name '*.rej' | head
+              exit 2
+            fi
+          done
+          for p in "${patches[@]}"; do
+            git apply "$p"
+            echo "applied $(basename "$p")"
+          done
+          echo "result=ok" >> "$GITHUB_OUTPUT"
 
       - name: Unit smoke
         if: steps.apply.outputs.result == 'ok'
@@ -64,7 +75,7 @@ jobs:
             const rev = process.env.UPSTREAM_REV || 'unknown';
             const title = `livepatch needs rebase against grok-build@${rev}`;
             const body = [
-              'The 6h watch failed to apply `patches/0001-ban-generic-subagents.patch` cleanly.',
+              'The 6h watch failed to apply the livepatch series (`patches/0001` + `patches/0002`) cleanly.',
               '',
               `Upstream tip: \`${rev}\``,
               '',

@@ -79,7 +79,7 @@ if [[ -f "$UNIT" ]]; then
   elif [[ -n "$unit_wd" && -x "$unit_wd/scripts/check-and-patch.sh" && "$exec_line" == *"$unit_wd"* ]]; then
     # Peer livepatch tree (e.g. marketplace) may own the unit — require scripts match this tip.
     drift=0
-    for rel in scripts/check-and-patch.sh scripts/install-timer.sh scripts/gates.sh patches/0001-ban-generic-subagents.patch; do
+    for rel in scripts/check-and-patch.sh scripts/install-timer.sh scripts/gates.sh patches/0001-ban-generic-subagents.patch patches/0002-kill-workflows.patch; do
       if [[ -f "$ROOT/$rel" && -f "$unit_wd/$rel" ]]; then
         if ! cmp -s "$ROOT/$rel" "$unit_wd/$rel"; then
           echo "  FAIL peer unit ROOT has drifted file: $rel" >&2
@@ -111,12 +111,26 @@ fi
 
 if [[ "$WITH_PATCH" -eq 1 ]]; then
   echo "== patch apply --check (network) =="
-  PATCH="$ROOT/patches/0001-ban-generic-subagents.patch"
   TMP=$(mktemp -d)
   trap 'rm -rf "$TMP"' EXIT
   git clone --depth 1 https://github.com/xai-org/grok-build.git "$TMP/g"
-  git -C "$TMP/g" apply --check "$PATCH"
-  echo "  ok apply-check @ $(git -C "$TMP/g" rev-parse --short HEAD)"
+  ok=1
+  for p in "$ROOT/patches/"*.patch; do
+    if git -C "$TMP/g" apply --check "$p"; then
+      echo "  ok apply-check $(basename "$p") @ $(git -C "$TMP/g" rev-parse --short HEAD)"
+    else
+      echo "  FAIL apply-check $(basename "$p")" >&2
+      ok=0
+    fi
+  done
+  if [[ "$ok" -ne 1 ]]; then
+    exit 1
+  fi
+  # Apply in order to prove the series is independent + sequential.
+  for p in "$ROOT/patches/"*.patch; do
+    git -C "$TMP/g" apply "$p"
+  done
+  echo "  ok series-applied @ $(git -C "$TMP/g" rev-parse --short HEAD)"
 fi
 
 echo "GATES_OK"

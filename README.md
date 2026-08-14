@@ -1,6 +1,6 @@
 # grok-build-livepatch
 
-**Hard-ban Grok Build's `general-purpose` and `explore` subagents in the CLI itself** — and keep that ban alive across upstream releases.
+**Hard-ban Grok Build's `general-purpose` and `explore` subagents, and hard-kill background workflows, in the CLI itself** — and keep those bans alive across upstream releases.
 
 xAI's public tree (`xai-org/grok-build`) is source-transparent and **does not accept external PRs**. This repo is the practical path:
 
@@ -16,10 +16,11 @@ xAI's public tree (`xai-org/grok-build`) is source-transparent and **does not ac
 | `subagent_variants()` → only `Plan` | Discovery matches |
 | `default_subagent_type()` → `plan` | Omitted type is no longer GP |
 | `is_banned_subagent_type()` + gate (case-insensitive) | Spawn of banned names hard-fails even if shadowed |
-| Full-capability alias `agent` | First-party goal/scheduler/workflow keep full tools without GP |
-| Unit tests for ban + casefold | Smoke |
+| Full-capability alias `agent` | First-party goal/scheduler keep full tools without GP |
+| `resolve_workflows()` → always `false` | Workflows / `/deep-research` / `.grok/workflows/*.rhai` stay off. Env, config, and remote cannot re-enable. Spawn rejects `workflows_disabled`. |
+| Unit tests for ban + casefold + workflows kill | Smoke |
 
-Upstream constants for GP/explore prompts remain for legacy rendering only; they are **not** advertised and **cannot spawn**.
+Upstream constants for GP/explore prompts remain for legacy rendering only; they are **not** advertised and **cannot spawn**. Workflows stay dead even if you set `GROK_WORKFLOWS=1` or `[workflows] enabled = true`.
 
 ## Public site (Titanium / ds4cc Pages)
 
@@ -31,7 +32,7 @@ Optional mirror under this repo `docs/` (if Pages enabled): `https://veigapunk.g
 
 ## Recommended CLI config (website / host)
 
-Public template: **[docs/cli-config.toml](docs/cli-config.toml)** (also on the Pages site) — marketplace sources, `xbgst-stack`, models, UI `permission_mode`, and subagent toggles aligned with the hard-ban.
+Public template: **[docs/cli-config.toml](docs/cli-config.toml)** (also on the Pages site) — marketplace sources, `xbgst-stack`, models, UI `permission_mode`, subagent toggles aligned with the hard-ban, and `[workflows] enabled = false`.
 
 ```bash
 # merge into your host config (do not commit secrets)
@@ -110,7 +111,7 @@ If `gh` is not logged in but SSH works (`ssh -T git@github.com` → `Hi VeigaPun
 
 ```
 marketplace/   # plugin.json + install note; agents/ may be empty (no bundled agents)
-patches/       # 0001-ban-generic-subagents.patch
+patches/       # 0001-ban-generic-subagents.patch · 0002-kill-workflows.patch
 scripts/       # check-and-patch.sh, install-timer.sh
 systemd/       # user timer units
 ```
