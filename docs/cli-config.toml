@@ -1,1 +1,95 @@
-# PLACEHOLDER
+# Recommended Grok Build CLI config for VeigaPunk livepatch + xbgst-stack.
+# Primary install UX: https://veigapunk.github.io/ds4cc-marketplace/
+#   config: https://veigapunk.github.io/ds4cc-marketplace/grok-cli-config.toml
+# Optional mirror (this file on Pages): https://veigapunk.github.io/grok-build-livepatch/
+# Install: copy/merge into ~/.grok/config.toml, then:
+#   grok plugin marketplace add VeigaPunk/grok-marketplace
+#   grok plugin install xbgst-stack@veigapunk/grok-marketplace --trust
+#   bash ~/.grok/installed-plugins/xbgst-stack-*/scripts/install-host.sh
+#   ./scripts/install-timer.sh --link-bin   # active_cli=livepatch
+#
+# Hard-ban of general-purpose/explore is enforced in the livepatched binary
+# (not only by [subagents.toggle]). First-party full-tool paths use "agent".
+#
+# Workflows are killed. Official default is ON since 0.2.111. Livepatch
+# hard-forces resolve_workflows()=false so GROK_WORKFLOWS=1 cannot re-enable.
+
+[cli]
+installer = "internal"
+
+[marketplace]
+default_skills_installs_purged = true
+official_marketplace_auto_installed = true
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[[marketplace.sources]]
+name = "grok-marketplace"
+git = "https://github.com/VeigaPunk/grok-marketplace.git"
+
+[[marketplace.sources]]
+name = "ds4cc-marketplace"
+git = "https://github.com/VeigaPunk/ds4cc-marketplace.git"
+
+[ui]
+max_thoughts_width = 120
+fork_secondary_model = "grok-4.5"
+yolo = false
+compact_mode = false
+permission_mode = "always-approve"
+
+[plugins]
+enabled = [
+    "exa",
+    "tinyfish",
+    "cloudflare",
+    "xbgst-stack",
+    "heuer-planning",
+]
+
+[models]
+default = "grok-4.5"
+default_reasoning_effort = "low"
+
+[subagents]
+enabled = true
+# Flat tree for xbgst: judge spawns ≤16 siblings; children cannot re-spawn Task.
+# Raise to 2 only for intentional nested sub-leads. Env override: GROK_SUBAGENTS_MAX_DEPTH.
+max_depth = 1
+max_concurrent = 16
+
+[subagents.toggle]
+# Defense in depth: CLI livepatch already hard-rejects these at spawn.
+explore = false
+general-purpose = false
+
+[workflows]
+# Official default is ON. Titanium + livepatch hard-kill.
+# Env override GROK_WORKFLOWS=1 is ignored on a patched binary.
+enabled = false
+
+[compat.cursor]
+skills = false
+rules = false
+agents = false
+mcps = false
+hooks = false
+sessions = false
+
+[compat.claude]
+skills = false
+rules = false
+agents = false
+mcps = false
+hooks = false
+sessions = false
+
+[compat.codex]
+skills = false
+rules = false
+agents = false
+mcps = false
+hooks = false
+sessions = false
