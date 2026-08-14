@@ -1,0 +1,49 @@
+diff --git a/crates/codegen/xai-grok-shell/src/agent/config.rs b/crates/codegen/xai-grok-shell/src/agent/config.rs
+index 3dd50b3..493942a 100644
+--- a/crates/codegen/xai-grok-shell/src/agent/config.rs
++++ b/crates/codegen/xai-grok-shell/src/agent/config.rs
+@@ -753,25 +753,30 @@ fn remote_compat_value(
+     }
+ }
+ /// Resolve vendor compatibility cells from TOML and remote settings.
++///
++/// Titanium livepatch: hard-kill. Official default is ON for every
++/// `[compat.<vendor>]` cell (Cursor / Claude / Codex skills, rules,
++/// agents, MCPs, hooks, sessions). Env, config, and remote cannot
++/// re-enable foreign CLI settings clones. Native `.grok` / `.agents`
++/// discovery is unaffected.
+ fn resolve_compat_config(
+     config: &CompatConfigToml,
+     remote: Option<&crate::util::config::RemoteSettings>,
+ ) -> CompatConfig {
+-    let defaults = CompatConfig::default();
+-    let mut resolved = defaults;
+-    for cell in COMPAT_CELLS {
+-        resolved.set(
+-            cell,
+-            resolve_compat_cell(
+-                cell.env_var(),
+-                config.value(cell),
+-                remote_compat_value(remote, cell.remote_key()),
+-                defaults.value(cell),
+-            )
+-            .value,
+-        );
++    let _ = (config, remote);
++    let off = xai_grok_tools::types::compat::VendorCompat {
++        skills: false,
++        rules: false,
++        agents: false,
++        mcps: false,
++        hooks: false,
++        sessions: false,
++    };
++    CompatConfig {
++        cursor: off,
++        claude: off,
++        codex: off,
+     }
+-    resolved
+ }
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub(crate) enum CompatConfigCellError {

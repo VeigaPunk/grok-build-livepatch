@@ -10,6 +10,9 @@
 #
 # Hard-ban of general-purpose/explore is enforced in the livepatched binary
 # (not only by [subagents.toggle]). First-party full-tool paths use "agent".
+#
+# Workflows are killed. Official default is ON since 0.2.111. Livepatch
+# hard-forces resolve_workflows()=false so GROK_WORKFLOWS=1 cannot re-enable.
 
 [cli]
 installer = "internal"
@@ -61,3 +64,32 @@ max_concurrent = 16
 # Defense in depth: CLI livepatch already hard-rejects these at spawn.
 explore = false
 general-purpose = false
+
+[workflows]
+# Official default is ON. Titanium + livepatch hard-kill.
+# Env override GROK_WORKFLOWS=1 is ignored on a patched binary.
+enabled = false
+
+[compat.cursor]
+skills = false
+rules = false
+agents = false
+mcps = false
+hooks = false
+sessions = false
+
+[compat.claude]
+skills = false
+rules = false
+agents = false
+mcps = false
+hooks = false
+sessions = false
+
+[compat.codex]
+skills = false
+rules = false
+agents = false
+mcps = false
+hooks = false
+sessions = false

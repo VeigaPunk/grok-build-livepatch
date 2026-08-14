@@ -1,0 +1,99 @@
+diff --git a/crates/codegen/xai-grok-shell/src/agent/config.rs b/crates/codegen/xai-grok-shell/src/agent/config.rs
+index 3dd50b3..12e0d63 100644
+--- a/crates/codegen/xai-grok-shell/src/agent/config.rs
++++ b/crates/codegen/xai-grok-shell/src/agent/config.rs
+@@ -2728,19 +2728,13 @@ impl Config {
+     /// `/deep-research`, host-owned `/goal` driver). Default ON: deployments
+     /// that never receive remote settings still get workflows; `Some(false)`
+     /// remote / config / env remains a kill-switch.
++    ///
++    /// Titanium livepatch: hard-killed. Official default is ON; env
++    /// (`GROK_WORKFLOWS`), `[workflows] enabled`, and remote
++    /// `workflows_enabled` cannot re-enable. Spawn rejects with
++    /// `workflows_disabled`.
+     pub(crate) fn resolve_workflows(&self) -> Resolved<bool> {
+-        let ff = self
+-            .remote_settings
+-            .as_ref()
+-            .and_then(|s| s.workflows_enabled);
+-        if ff == Some(false) {
+-            return Resolved::new(false, ConfigSource::Remote);
+-        }
+-        BoolFlag::env("GROK_WORKFLOWS")
+-            .config(self.workflows.enabled)
+-            .feature_flag(ff)
+-            .default(true)
+-            .resolve()
++        Resolved::new(false, ConfigSource::Default)
+     }
+     /// Classifier, planner, and summary all default to goal mode itself: when
+     /// `/goal` is on they are on unless config/env/remote says otherwise.
+diff --git a/crates/codegen/xai-grok-shell/src/agent/config_tests.rs b/crates/codegen/xai-grok-shell/src/agent/config_tests.rs
+index 2a51c35..e65371d 100644
+--- a/crates/codegen/xai-grok-shell/src/agent/config_tests.rs
++++ b/crates/codegen/xai-grok-shell/src/agent/config_tests.rs
+@@ -4119,17 +4119,17 @@ fn resolve_goal_remote_settings_kill_switch_overrides_default_on() {
+ }
+ #[test]
+ #[serial]
+-fn background_workflows_default_on_without_affecting_goal() {
++fn background_workflows_hard_killed_without_affecting_goal() {
+     unsafe { std::env::remove_var("GROK_WORKFLOWS") };
+     let cfg = Config::default();
+     let r = cfg.resolve_workflows();
+-    assert!(r.value);
++    assert!(!r.value, "livepatch hard-kills workflows");
+     assert_eq!(r.source, ConfigSource::Default);
+     assert!(cfg.resolve_goal().value);
+ }
+ #[test]
+ #[serial]
+-fn resolve_workflows_remote_settings_enables() {
++fn resolve_workflows_remote_true_cannot_reenable() {
+     unsafe { std::env::remove_var("GROK_WORKFLOWS") };
+     let cfg = Config {
+         remote_settings: Some(crate::util::config::RemoteSettings {
+@@ -4139,34 +4139,34 @@ fn resolve_workflows_remote_settings_enables() {
+         ..Default::default()
+     };
+     let r = cfg.resolve_workflows();
+-    assert_eq!(r.source, ConfigSource::Remote);
+-    assert!(r.value);
++    assert!(!r.value, "remote cannot re-enable workflows");
++    assert_eq!(r.source, ConfigSource::Default);
+ }
+ #[test]
+ #[serial]
+-fn resolve_workflows_remote_false_kills_local_opt_in() {
++fn resolve_workflows_env_and_config_cannot_reenable() {
+     unsafe { std::env::set_var("GROK_WORKFLOWS", "1") };
+     let mut cfg = Config::default();
+     cfg.workflows.enabled = Some(true);
+     cfg.remote_settings = Some(crate::util::config::RemoteSettings {
+-        workflows_enabled: Some(false),
++        workflows_enabled: Some(true),
+         ..Default::default()
+     });
+     let r = cfg.resolve_workflows();
+-    assert_eq!(r.source, ConfigSource::Remote);
+-    assert!(!r.value);
++    assert!(!r.value, "env/config/remote cannot re-enable workflows");
++    assert_eq!(r.source, ConfigSource::Default);
+     unsafe { std::env::remove_var("GROK_WORKFLOWS") };
+ }
+ #[test]
+ #[serial]
+-fn resolve_workflows_env_wins() {
++fn resolve_workflows_env_kill_is_redundant() {
+     unsafe { std::env::set_var("GROK_WORKFLOWS", "0") };
+     let cfg = Config::default();
+     let r = cfg.resolve_workflows();
+-    assert_eq!(r.source, ConfigSource::Env);
++    assert_eq!(r.source, ConfigSource::Default);
+     assert!(
+         !r.value,
+-        "env must be able to kill the default-on workflows"
++        "workflows stay killed regardless of GROK_WORKFLOWS"
+     );
+     unsafe { std::env::remove_var("GROK_WORKFLOWS") };
+ }

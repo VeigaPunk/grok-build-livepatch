@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # grok-build-livepatch — check for a new Grok Build CLI release and re-apply
-# the ban-generic-subagents patch on the fly.
+# the Titanium livepatch series (GP/explore ban + workflows kill) on the fly.
 #
 # Exit codes:
 #   0  up to date / patched OK / no action needed
@@ -12,8 +12,9 @@ usage() {
   cat <<'EOF'
 Usage: check-and-patch.sh [--help|-h]
 
-Check for a new Grok Build CLI release and re-apply the ban-generic-subagents
-livepatch (clone/fetch, cargo build — network-heavy).
+Check for a new Grok Build CLI release and re-apply the Titanium livepatch
+series (0001 GP/explore ban + 0002 workflows kill). Clone/fetch + cargo build
+are network-heavy.
 
   --help, -h   Print this help and exit 0 (no network, no clone).
 
@@ -52,7 +53,7 @@ esac
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_DIR="${GROK_LIVEPATCH_STATE:-$HOME/.local/state/grok-build-livepatch}"
 SRC_DIR="${GROK_BUILD_SRC:-$HOME/Projects/grok-build}"
-PATCH="$ROOT/patches/0001-ban-generic-subagents.patch"
+PATCH_DIR="$ROOT/patches"
 LOG="$STATE_DIR/watch.log"
 VERSION_FILE="$HOME/.grok/version.json"
 BIN_LINK="$HOME/.grok/bin/grok"
@@ -109,6 +110,33 @@ last_patched() {
   tr -d '\r\n' <"$STATE_DIR/last-patched-version" 2>/dev/null | head -c 128 || true
 }
 
+# Sorted series: 0001-ban-generic-subagents, 0002-kill-workflows, …
+list_patches() {
+  find "$PATCH_DIR" -maxdepth 1 -type f -name '*.patch' | sort
+}
+
+patches_forward_ok() {
+  local p
+  while IFS= read -r p; do
+    git -C "$SRC_DIR" apply --check "$p" || return 1
+  done < <(list_patches)
+}
+
+patches_reverse_ok() {
+  local p
+  while IFS= read -r p; do
+    git -C "$SRC_DIR" apply --reverse --check "$p" || return 1
+  done < <(list_patches | tac)
+}
+
+apply_all_patches() {
+  local p
+  while IFS= read -r p; do
+    git -C "$SRC_DIR" apply "$p"
+    log "applied $(basename "$p")"
+  done < <(list_patches)
+}
+
 ensure_source() {
   if [[ ! -d "$SRC_DIR/.git" ]]; then
     log "cloning xai-org/grok-build → $SRC_DIR"
@@ -137,37 +165,61 @@ ensure_source() {
 apply_patch() {
   APPLY_STATUS=fail
   cd "$SRC_DIR"
-  # clean any previous livepatch branch
-  git checkout -B livepatch/ban-generic-subagents
-  # 1) clean apply
-  if git apply --check "$PATCH" 2>"$STATE_DIR/apply-check.err"; then
-    git apply "$PATCH"
-    log "patch applied cleanly"
-    APPLY_STATUS=applied
-    return 0
+  git checkout -B livepatch/titanium
+  local n
+  n=$(list_patches | wc -l | tr -d ' ')
+  if [[ "${n:-0}" -eq 0 ]]; then
+    log "FAIL: no patches in $PATCH_DIR"
+    return 1
   fi
-  # 2) already applied only if reverse --check succeeds (do not OR-grep symbols alone)
-  if git apply --reverse --check "$PATCH" 2>"$STATE_DIR/apply-reverse-check.err"; then
-    log "patch already present (reverse-check OK) — already-applied"
+  log "series: $(list_patches | xargs -n1 basename | tr '\n' ' ')"
+
+  # 1) entire series already present (reverse in reverse order)
+  if patches_reverse_ok 2>"$STATE_DIR/apply-reverse-check.err"; then
+    log "all patches already present (reverse-check OK) — already-applied"
     APPLY_STATUS=already-applied
     return 0
   fi
-  if git grep -q 'is_banned_subagent_type' -- '*.rs' 2>/dev/null; then
-    log "WARN: ban symbols present but reverse --check failed — trying 3-way"
-  fi
-  # 3) try 3-way
-  if git apply --3way "$PATCH" 2>"$STATE_DIR/apply-3way.err"; then
-    log "patch applied with 3-way merge"
-    APPLY_STATUS=three-way
+  # 2) clean apply of the whole series
+  if patches_forward_ok 2>"$STATE_DIR/apply-check.err"; then
+    apply_all_patches
+    log "patch series applied cleanly"
+    APPLY_STATUS=applied
     return 0
   fi
-  # 4) needs human
-  log "PATCH FAILED — needs human rebase"
-  APPLY_STATUS=needs-rebase
-  cat "$STATE_DIR/apply-check.err" >>"$LOG" || true
-  cat "$STATE_DIR/apply-reverse-check.err" >>"$LOG" 2>/dev/null || true
-  cat "$STATE_DIR/apply-3way.err" >>"$LOG" || true
-  return 2
+  if git grep -q 'is_banned_subagent_type' -- '*.rs' 2>/dev/null; then
+    log "WARN: ban symbols present but reverse --check failed — trying 3-way per patch"
+  fi
+  # 3) per-patch: skip if reverse-ok, else apply, else 3-way
+  local p any_3way=0
+  while IFS= read -r p; do
+    if git apply --reverse --check "$p" 2>/dev/null; then
+      log "$(basename "$p") already present"
+      continue
+    fi
+    if git apply --check "$p" 2>/dev/null; then
+      git apply "$p"
+      log "applied $(basename "$p")"
+      continue
+    fi
+    if git apply --3way "$p" 2>>"$STATE_DIR/apply-3way.err"; then
+      log "applied $(basename "$p") with 3-way"
+      any_3way=1
+      continue
+    fi
+    log "PATCH FAILED — $(basename "$p") needs human rebase"
+    APPLY_STATUS=needs-rebase
+    cat "$STATE_DIR/apply-check.err" >>"$LOG" || true
+    cat "$STATE_DIR/apply-reverse-check.err" >>"$LOG" 2>/dev/null || true
+    cat "$STATE_DIR/apply-3way.err" >>"$LOG" || true
+    return 2
+  done < <(list_patches)
+  if [[ $any_3way -eq 1 ]]; then
+    APPLY_STATUS=three-way
+  else
+    APPLY_STATUS=applied
+  fi
+  return 0
 }
 
 # Point ~/.grok/bin/grok at install binary when REPLACE_BIN is enabled.
@@ -226,15 +278,15 @@ run_unit_smoke() {
 main() {
   log "=== livepatch check start ==="
   log "ROOT=$ROOT SRC_DIR=$SRC_DIR INSTALL_DIR=$INSTALL_DIR"
-  log "PATCH=$PATCH"
+  log "PATCH_DIR=$PATCH_DIR"
   local installed upstream last
   installed=$(current_installed | head -1)
   upstream=$(fetch_upstream_version)
   last=$(last_patched)
   log "installed=${installed:-?} upstream=${upstream:-?} last_patched=${last:-none}"
 
-  if [[ ! -f "$PATCH" ]]; then
-    log "FAIL: patch missing at $PATCH"
+  if [[ ! -d "$PATCH_DIR" ]] || [[ -z "$(list_patches)" ]]; then
+    log "FAIL: no patches in $PATCH_DIR"
     echo "fail" >"$STATE_DIR/last-result"
     exit 1
   fi
@@ -248,16 +300,16 @@ main() {
   #    rebuild if install binary exists; still ensure CLI link when REPLACE_BIN=1
   # Else fall through to full apply/rebuild (true drift / conflict).
   if [[ "${GROK_LIVEPATCH_FORCE:-0}" != "1" && -n "$upstream" && "$upstream" == "$last" ]]; then
-    if git -C "$SRC_DIR" apply --reverse --check "$PATCH" 2>"$STATE_DIR/apply-reverse-check.err"; then
+    if patches_reverse_ok 2>"$STATE_DIR/apply-reverse-check.err"; then
       log "already patched for $upstream (reverse-check OK) — noop"
       ensure_cli_link
       echo "noop" >"$STATE_DIR/last-result"
       exit 0
     fi
-    if git -C "$SRC_DIR" apply --check "$PATCH" 2>"$STATE_DIR/apply-check.err"; then
-      log "version match: clean tip — re-assert patch + unit smoke (light path)"
-      git -C "$SRC_DIR" checkout -B livepatch/ban-generic-subagents
-      git -C "$SRC_DIR" apply "$PATCH"
+    if patches_forward_ok 2>"$STATE_DIR/apply-check.err"; then
+      log "version match: clean tip — re-assert patch series + unit smoke (light path)"
+      git -C "$SRC_DIR" checkout -B livepatch/titanium
+      apply_all_patches
       run_unit_smoke
       if [[ -x "$INSTALL_DIR/grok" ]]; then
         ensure_cli_link
