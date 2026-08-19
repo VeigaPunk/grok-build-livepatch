@@ -1,7 +1,7 @@
 {
   "name": "grok-build-livepatch",
   "version": "0.2.1",
-  "description": "Hard-ban general-purpose and explore subagents; 6h livepatch watcher for xai-org/grok-build.",
+  "description": "Hard-ban general-purpose and explore subagents; manual livepatching by default with an optional 6h watcher.",
   "author": {
     "name": "VeigaPunk",
     "url": "https://github.com/VeigaPunk"

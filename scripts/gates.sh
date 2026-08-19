@@ -49,8 +49,49 @@ echo "== --help =="
 ./scripts/install-timer.sh --help >/dev/null
 ./scripts/publish.sh --help >/dev/null
 ./scripts/gates.sh --help >/dev/null
-./scripts/sync-stack-livepatch.sh --help >/dev/null
+sync_help_output=$(./scripts/sync-stack-livepatch.sh --help)
+if [[ "$sync_help_output" != *"Manual patching is default"* || "$sync_help_output" != *"--install-timer"* ]]; then
+  echo "  FAIL sync-stack-livepatch.sh help does not include manual timer defaults" >&2
+  exit 1
+fi
+if [[ "$sync_help_output" != *"--no-timer"* ]]; then
+  echo "  FAIL sync-stack-livepatch.sh help does not mention --no-timer" >&2
+  exit 1
+fi
 echo "  ok help"
+
+echo "== timer opt-in contract =="
+TEST_HOME=$(mktemp -d)
+trap 'rm -rf "$TEST_HOME"' EXIT
+TEST_PLUGIN="$TEST_HOME/Projects/grok-marketplace/plugins/xbgst-stack"
+mkdir -p "$TEST_PLUGIN/livepatch" "$TEST_PLUGIN/scripts" "$TEST_HOME/timer-root/scripts"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$TEST_PLUGIN/scripts/install-host.sh"
+cat >"$TEST_HOME/timer-root/scripts/install-timer.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "${1:-install}" >>"$HOME/timer-calls"
+EOF
+chmod +x "$TEST_HOME/timer-root/scripts/install-timer.sh"
+HOME="$TEST_HOME" ./scripts/sync-stack-livepatch.sh >/dev/null
+HOME="$TEST_HOME" GROK_LIVEPATCH_ROOT="$TEST_HOME/timer-root" \
+  "$TEST_PLUGIN/scripts/install-host.sh" >/dev/null
+if [[ -e "$TEST_HOME/timer-calls" ]]; then
+  echo "  FAIL manual sync/host flow invoked install-timer" >&2
+  exit 1
+fi
+sync_warning=$(HOME="$TEST_HOME" ./scripts/sync-stack-livepatch.sh --no-timer 2>&1 >/dev/null)
+host_warning=$(HOME="$TEST_HOME" "$TEST_PLUGIN/scripts/install-host.sh" --no-timer 2>&1 >/dev/null)
+if [[ "$sync_warning" != *"deprecated"* || "$host_warning" != *"deprecated"* \
+  || -e "$TEST_HOME/timer-calls" ]]; then
+  echo "  FAIL --no-timer is not a deprecated no-op" >&2
+  exit 1
+fi
+HOME="$TEST_HOME" GROK_LIVEPATCH_ROOT="$TEST_HOME/timer-root" \
+  "$TEST_PLUGIN/scripts/install-host.sh" --install-timer >/dev/null
+if [[ "$(cat "$TEST_HOME/timer-calls")" != $'install\n--status' ]]; then
+  echo "  FAIL --install-timer did not explicitly install and report status" >&2
+  exit 1
+fi
+echo "  ok manual default; explicit timer opt-in"
 
 echo "== install-timer --status =="
 ./scripts/install-timer.sh --status || true

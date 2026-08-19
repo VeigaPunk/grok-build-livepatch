@@ -1,4 +1,4 @@
-# Host install (timer + CLI ban)
+# Host install (manual patching default; timer optional)
 
 Canonical packaging lives in this public repo. xbgst-stack may vendor a
 `livepatch/` copy; prefer this checkout when both exist.
@@ -10,10 +10,11 @@ cd ~/Projects/grok-build-livepatch   # or git clone …
 chmod +x scripts/*.sh
 ./scripts/gates.sh                  # offline health
 ./scripts/check-and-patch.sh        # first build (network + cargo)
-./scripts/install-timer.sh          # 6h timer → this ROOT; REPLACE_BIN=1 on unit
+./scripts/install-timer.sh          # optional: 6h timer → this ROOT; REPLACE_BIN=1 on unit
 ./scripts/install-timer.sh --status # ExecStart, ban_in_binary, active_cli
 # after upgrades, keep marketplace/plugin copies aligned:
-./scripts/sync-stack-livepatch.sh   # sync scripts + rewrite install-host + rebind timer
+./scripts/sync-stack-livepatch.sh   # sync scripts + rewrite install-host (manual by default)
+./scripts/sync-stack-livepatch.sh --install-timer  # optional explicit timer rebind
 ```
 
 ## Root resolution (`install-timer.sh`)
@@ -35,7 +36,9 @@ cd ~/Projects/grok-build-livepatch && ./scripts/install-timer.sh
 
 ## xbgst-stack `install-host.sh`
 
-Should prefer `$HOME/Projects/grok-build-livepatch` when present.
+Installs host files without configuring a timer by default. Pass
+`--install-timer` to opt in; timer setup then prefers
+`$HOME/Projects/grok-build-livepatch` when present.
 Force the stack copy with `GROK_LIVEPATCH_FORCE_STACK_LP=1`.
 
 If install-host was rebased to marketplace-first, re-run Projects

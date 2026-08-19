@@ -18,6 +18,7 @@ Native `.grok` / `.agents` discovery is unaffected.
 git clone https://github.com/VeigaPunk/grok-build-livepatch.git
 cd grok-build-livepatch
 ./scripts/check-and-patch.sh
+# Manual patching is the default. Optional 6h scheduling and CLI links:
 ./scripts/install-timer.sh --link-bin
 ```
 

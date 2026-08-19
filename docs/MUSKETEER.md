@@ -25,7 +25,7 @@ If exit 0: report last-patched-version + last-result.
 Never use subagent types general-purpose or explore.
 ```
 
-## Option C — systemd (always-on, no chat)
+## Option C — systemd (optional, always-on)
 
 ```bash
 ./scripts/install-timer.sh

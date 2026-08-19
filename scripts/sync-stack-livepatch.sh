@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Sync this public livepatch tree into local xbgst-stack copies and rebind timer.
+# Sync this public livepatch tree into local xbgst-stack copies.
 # Local-only; no network (except if you later run check-and-patch).
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: sync-stack-livepatch.sh [--help|-h] [--no-timer]
+Usage: sync-stack-livepatch.sh [--help|-h] [--install-timer] [--no-timer]
+
+Manual patching is default; timer rebinding is optional and must be requested via
+--install-timer. --no-timer is retained as a deprecated no-op.
 
 Copy scripts/, systemd/, patches/ from this repo into known local stack
-livepatch trees, rewrite xbgst-stack install-host.sh to prefer Projects,
-and re-run install-timer from this checkout (unless --no-timer).
+livepatch trees, and rewrite xbgst-stack install-host.sh to prefer Projects.
 
 Targets (if present):
   ~/Projects/grok-marketplace/plugins/xbgst-stack/livepatch
@@ -18,20 +20,29 @@ Targets (if present):
 EOF
 }
 
-case "${1:-}" in
-  --help|-h) usage; exit 0 ;;
-esac
-
-NO_TIMER=0
-case "${1:-}" in
-  --no-timer) NO_TIMER=1 ;;
-  "") ;;
-  *)
-    echo "Unknown option: $1" >&2
-    usage >&2
-    exit 1
-    ;;
-esac
+INSTALL_TIMER=0
+while [[ $# -gt 0 ]]; do
+  case "${1:-}" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --install-timer)
+      INSTALL_TIMER=1
+      ;;
+    --no-timer)
+      echo "warning: --no-timer is deprecated; manual mode is default" >&2
+      ;;
+    "")
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CANON="$ROOT"
@@ -47,12 +58,13 @@ sync_tree() {
   echo "synced → $dest"
 }
 
-# Prefer-Projects install-host body for the livepatch block (idempotent rewrite of timer section).
+# Prefer-Projects install-host body for the livepatch block (idempotent rewrite).
 patch_install_host() {
   local host="$1"
   [[ -f "$host" ]] || return 0
   if grep -q 'prefer canonical Projects livepatch' "$host" 2>/dev/null \
-    && grep -q 'GROK_LIVEPATCH_FORCE_STACK_LP' "$host" 2>/dev/null; then
+    && grep -q 'GROK_LIVEPATCH_FORCE_STACK_LP' "$host" 2>/dev/null \
+    && grep -q 'Manual patching is default' "$host" 2>/dev/null; then
     echo "install-host already Projects-prefer: $host"
     return 0
   fi
@@ -61,13 +73,34 @@ patch_install_host() {
 #!/usr/bin/env bash
 # Wire xbgst-stack + livepatch on this host (idempotent).
 # Managed/synced by grok-build-livepatch scripts/sync-stack-livepatch.sh
-#
-# Timer root (local-first when Projects clone exists):
-#   1) GROK_LIVEPATCH_ROOT if set
-#   2) KEEP_STAMP=1 → honor preferred-install-root stamp
-#   3) $HOME/Projects/grok-build-livepatch if install-timer exists
-#   4) else this stack's livepatch/ (or FORCE_STACK_LP=1)
 set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: install-host.sh [--help|-h] [--install-timer] [--no-timer]
+
+Install the xbgst-stack host files. Manual patching is default; timer setup is
+optional and only runs with --install-timer. --no-timer is a deprecated no-op.
+EOF
+}
+
+INSTALL_TIMER=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help|-h) usage; exit 0 ;;
+    --install-timer) INSTALL_TIMER=1 ;;
+    --no-timer)
+      echo "warning: --no-timer is deprecated; manual mode is default" >&2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
 STACK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LP="$STACK_ROOT/livepatch"
 GROK_HOME="${GROK_HOME:-$HOME/.grok}"
@@ -100,33 +133,37 @@ fi
 
 if [[ -d "$LP/scripts" ]]; then
   chmod +x "$LP/scripts/"*.sh
+fi
+
+if [[ "$INSTALL_TIMER" -eq 1 && -d "$LP/scripts" ]]; then
+  # Timer root (local-first when Projects clone exists): explicit env, retained
+  # stamp, canonical checkout, then this stack's livepatch copy.
   if [[ -n "${GROK_LIVEPATCH_ROOT:-}" ]]; then
     echo "→ install-timer with GROK_LIVEPATCH_ROOT=$GROK_LIVEPATCH_ROOT"
     if [[ -x "${GROK_LIVEPATCH_ROOT}/scripts/install-timer.sh" ]]; then
-      bash "${GROK_LIVEPATCH_ROOT}/scripts/install-timer.sh"
+      TIMER_SCRIPT="${GROK_LIVEPATCH_ROOT}/scripts/install-timer.sh"
     else
-      bash "$LP/scripts/install-timer.sh"
+      TIMER_SCRIPT="$LP/scripts/install-timer.sh"
     fi
   elif [[ "${GROK_LIVEPATCH_KEEP_STAMP:-}" == "1" ]]; then
     echo "→ install-timer honoring preferred-install-root stamp (KEEP_STAMP=1)"
-    GROK_LIVEPATCH_KEEP_STAMP=1 bash "$LP/scripts/install-timer.sh"
+    TIMER_SCRIPT="$LP/scripts/install-timer.sh"
   elif [[ "${GROK_LIVEPATCH_FORCE_STACK_LP:-}" != "1" && -x "$CANON/scripts/install-timer.sh" ]]; then
     echo "→ prefer canonical Projects livepatch: $CANON"
-    bash "$CANON/scripts/install-timer.sh"
+    TIMER_SCRIPT="$CANON/scripts/install-timer.sh"
   else
     echo "→ install-timer binding ROOT to stack livepatch: $LP"
-    bash "$LP/scripts/install-timer.sh"
+    TIMER_SCRIPT="$LP/scripts/install-timer.sh"
   fi
+  GROK_LIVEPATCH_KEEP_STAMP="${GROK_LIVEPATCH_KEEP_STAMP:-0}" bash "$TIMER_SCRIPT"
   UNIT="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/grok-build-livepatch.service"
   if [[ -f "$UNIT" ]] && grep -qE '^Environment=GROK_LIVEPATCH_REPLACE_BIN=1' "$UNIT"; then
     echo "  note: unit REPLACE_BIN=1 (active CLI gets ban; set =0 on unit to opt out)"
   fi
-  if [[ -x "$CANON/scripts/install-timer.sh" ]]; then
-    bash "$CANON/scripts/install-timer.sh" --status || true
-  else
-    bash "$LP/scripts/install-timer.sh" --status || true
-  fi
+  bash "$TIMER_SCRIPT" --status || true
   echo "✓ livepatch timer enabled"
+elif [[ -d "$LP/scripts" ]]; then
+  echo "→ skipping timer setup (manual patching default; use --install-timer)"
 else
   echo "⚠ livepatch/ missing under stack"
 fi
@@ -151,10 +188,12 @@ for d in "$HOME"/.grok/installed-plugins/xbgst-stack-*/livepatch; do
 done
 shopt -u nullglob
 
-if [[ "$NO_TIMER" -eq 0 ]]; then
+if [[ "$INSTALL_TIMER" -eq 1 ]]; then
   echo "→ rebind timer from $CANON"
   bash "$CANON/scripts/install-timer.sh"
   bash "$CANON/scripts/install-timer.sh" --status || true
+else
+  echo "→ skipping timer rebind (manual patching default; use --install-timer)"
 fi
 
 echo "SYNC_OK"

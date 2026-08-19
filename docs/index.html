@@ -63,7 +63,7 @@
       </div>
       <div class="card">
         <h3>6h watch</h3>
-        <p>systemd user timer re-applies the patch when upstream Grok Build moves.</p>
+        <p>Timer-based re-apply is optional; manual patching is the default.</p>
       </div>
     </div>
 
@@ -75,14 +75,15 @@ cd grok-build-livepatch
 chmod +x scripts/*.sh
 ./scripts/gates.sh
 ./scripts/check-and-patch.sh          <span class="c"># network + cargo (first run)</span>
-./scripts/install-timer.sh            <span class="c"># 6h user timer, REPLACE_BIN=1</span>
+./scripts/install-timer.sh            <span class="c"># optional: 6h user timer, REPLACE_BIN=1</span>
 ./scripts/install-timer.sh --link-bin
 ./scripts/install-timer.sh --status   <span class="c"># active_cli=livepatch</span>
 
 <span class="c"># marketplace stack (agents / skills / commands)</span>
 grok plugin marketplace add VeigaPunk/grok-marketplace
 grok plugin install xbgst-stack@veigapunk/grok-marketplace --trust
-bash ~/.grok/installed-plugins/xbgst-stack-*/scripts/install-host.sh</pre>
+bash ~/.grok/installed-plugins/xbgst-stack-*/scripts/install-host.sh
+<span class="c"># add --install-timer only to opt in to scheduling</span></pre>
     </section>
 
     <section id="config">
